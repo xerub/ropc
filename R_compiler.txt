@@ -1,0 +1,51 @@
+Part 2. The Lexer
+=================
+
+Will tokenize ONE line of text with maximum 64 tokens.
+The lexer recognizes C preprocessor output directives:
+    # NUMBER "filename"
+    #line NUMBER "filename"
+
+Each line must be exactly one rule in the grammar.
+Comments begin with ';', so unlike C, you cannot have
+multiple statements/expressions in the same line.
+
+Also unlike C, statements need not be terminated
+with ';' but is a good practice, because after
+the semicolon you can write about anything.
+
+Keywords:
+    if		T_K_IF
+    goto	T_K_GOTO
+    const	T_K_CONST
+    extern	T_K_EXTERN
+    volatile	T_K_VOLATILE
+Regular tokens:
+    :		T_COLON
+    ,		T_COMMA
+    {		T_OPENCURLY
+    }		T_CLOSECURLY
+    [		T_OPENSQUARE
+    ]		T_CLOSESQUARE
+    (		T_OPENBRACE
+    )		T_CLOSEBRACE
+    =		T_ASSIGN
+    !		T_LOGICNOT
+    +		T_ADD
+    -		T_SUB
+    *		T_MUL
+    &		T_AND
+Strings:
+    "a", 'b'	T_STRING
+Numbers:
+    0x1, 077, 5	T_INT
+Identifiers:
+    a3, bla	T_ID
+
+Part 3. The Parser
+==================
+
+Will parse ONE line of text into "struct the_node".
+    struct the_node::next	contains the next node in source
+    struct the_node::edge[]	contains the following nodes in execution flow
+    struct the_node::code	code to emit: a list of nodes representing statements

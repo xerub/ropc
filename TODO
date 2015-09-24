@@ -1,0 +1,43 @@
+const:
+    used for
+	var = immediate
+    to avoid generating
+	*&var = immediate
+    var is just defined to be immediate
+    useful inside loops
+
+volatile:
+    used for
+	x = var
+    to force generating
+	x = *&var
+    instead of just inlining var
+    needed when a variable is used before and after a function call
+
+therefore
+    "const volatile" is perfectly ok :)
+
+
+
+====
+
+make [[stack]] attribute and warn if not used in loops
+    or warn if automatically added
+right now, it is automatically added in loop
+
+====
+
+allow direct	a = execve
+merge is_symbol_constant with get_symbol_flags
+    i know is_symbol_constant checks for existence of symbol, but at the time of checking this,
+	we already know the symbol exists
+
+-flto -O2
+
+====
+
+__FILE__ and __LINE__ is not supported by the compiler, but you can use the preprocessor
+
+====
+
+if a gadget modifies SP from R7 (esp from ebp), we must make sure R7 (ebp) is properly initialized

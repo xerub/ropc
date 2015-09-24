@@ -1,0 +1,12 @@
+# DO NOT DELETE
+
+lexer.o: config.h util.h lexer.h
+parser.o: config.h util.h parser.h lexer.h emit.h code.h backend.h symtab.h
+cycle.o: util.h code.h cycle.h
+code.o: config.h util.h lexer.h parser.h symtab.h cycle.h emit.h code.h backend.h
+emit.o: config.h util.h emit.h code.h symtab.h backend.h
+symtab.o: config.h util.h symtab.h
+backend.o: config.h util.h code.h backend.h symtab.h binary.h
+binary.o: binary.h
+util.o: config.h util.h lexer.h
+ropc.o: config.h util.h lexer.h parser.h code.h symtab.h backend.h

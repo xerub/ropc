@@ -1,0 +1,59 @@
+translation_unit	: external_decl
+			| translation_unit external_decl
+			;
+external_decl		: "extern" ID
+			| "extern" ID attribute_spec
+			| labeled_stat
+			;
+labeled_stat		: ID ':'
+			| ID ':' labeled_stat
+			| stat
+			;
+stat			: assignment_exp
+			| selection_stat
+			| jump_stat
+			;
+selection_stat		: "if" '(' assignment_exp ')' jump_stat
+			| "if" '!' '(' assignment_exp ')' jump_stat
+			;
+jump_stat		: "goto" ID
+			;
+assignment_exp		: additive_exp
+			| lvalue_exp '=' assignment_exp
+			;
+additive_exp		: rvalue_exp
+			| additive_exp '+' rvalue_exp
+			;
+rvalue_exp		: immediate_exp
+			| lvalue_exp
+			| ID '(' ')'
+			| ID '(' argument_exp_list ')'
+			| attribute_spec ID '(' ')'
+			| attribute_spec ID '(' argument_exp_list ')'
+			;
+argument_exp_list	: additive_exp
+			| additive_exp ',' argument_exp_list
+			;
+lvalue_exp 		: '*' ID
+			| ID
+			| type_qualifier ID
+			;
+type_qualifier		: "const" | "volatile"
+			;
+immediate_exp		: NUMBER
+			| '+' NUMBER
+			| '-' NUMBER
+			| STRING
+			| '&' ID
+			| '{' initializer_list '}'
+			;
+initializer_list	: immediate_exp
+			| initializer_list ',' immediate_exp
+			;
+attribute_spec		: '[' '[' attribute_list ']' ']'
+			;
+attribute_list		: attribute
+			| attribute ',' attribute_list
+			;
+attribute		: "noreturn" | "stdcall" | "stack"
+			;

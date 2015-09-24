@@ -1,0 +1,4 @@
+58 C3		pop eax / ret
+C9 C3		leave / ret		<=>	mov esp, ebp / pop ebp / ret
+FF D6 C3	call esi / ret
+5E C9 C3	pop esi / leave / ret

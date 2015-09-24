@@ -1,0 +1,54 @@
+1. The input is a C-like preprocessed source, the output is a NASM-like strip.
+	dg	-> define gadget, which must be slid by library slide
+	du	-> define local, which must be slid by executable slide
+	dd	-> define actual value (32bit)
+
+2. we implement lazy assignment.  that is, an assignment is not guaranteed
+    to generate code, it only guarantees that when first using the assigned
+    variable, it will have the desired value.  however, since we "compile"
+    one line at a time (and since we do not have proper flow analysis)
+    any assignment in a loop cannot be lazy.  use 'const' to avoid this
+
+3. immediate expressions using two addresses are computed "the hard way"
+    (there is no workaround at this time).  simple additive expressions
+    involving immediates are passed as-is to the backend assembler
+
+4. strings are treated as implicit addresses.  therefore,
+	b = "a" + 1
+    really means:
+	str = "a"
+	b = &str + 1
+    also, compound expressions are treated just like strings, with "long"
+    values instead of characters
+
+5. imports are implicit addresses.  to actually use external variables, do
+	*optind = 0;
+	a = *optind;
+
+6. sometimes, it is better to use multiple assignments for the same value
+	fd = fd2 = open(...);
+	use(fd);
+	use(fd2);
+    instead of
+	fd = open(...);
+	use(fd);
+	use(fd);
+
+7. this contrived load/store architecture stems from the assumptions that
+    some rop gadgets are hard -- or impossible -- to find.  for example,
+    it is hard to load r1 without r0
+
+8. jumping to labels in the past is tricky, because stack above us is
+    destroyed by calls in-between.  for the same reason, parameters
+    referencing things in the past are WRONG:
+	label:
+	x = 1;
+	printf("x=%x\n", x);
+	if (modify(&x)) goto label;
+    stack above modify is destroyed, so jumping back to label is problematic.
+    also, any use of *(&x) is probably doomed.  therefore, we need to reserve
+    some stack space before any such calls.
+	I REALLY NEED TO FIX THIS: IT IS HORRIBLE
+
+9. comments start with ';'.  there can be no multiple statements on the same
+    line.  also, each statement should be on its own line
