@@ -223,7 +223,7 @@ solve_op(enum R_OP op)
             rv = parse_gadgets(ranges, binmap, NULL, is_LOAD_R0R3);
             break;
         case LDR_R0_R0:
-            rv = parse_gadgets(ranges, binmap, NULL, is_LOAD_R0);
+            rv = parse_gadgets(ranges, binmap, NULL, is_LDR_R0_R0);
             break;
         case ADD_R0_R1:
             rv = parse_gadgets(ranges, binmap, NULL, is_ADD_R0_R1);
