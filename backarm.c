@@ -124,17 +124,17 @@ solve_import(const char *p)
 static int
 solve_MOV_Rx_R0(const unsigned char *p, uint32_t size, va_list ap, target_addr_t addr, void *user)
 {
-    static int min_reg = 8 + 1;
     const unsigned char *pp[1];
     int rv = is_MOV_Rx_R0(p, size, ap, addr, pp);
     if (rv && user) {
         assert(rv & 1);
         if (rv < 0) {
             int reg = popcount(*pp[0]);
+            int min_reg = ((uintptr_t *)user)[2];
             if (min_reg <= reg) {
                 return rv;
             }
-            min_reg = reg;
+            ((uintptr_t *)user)[2] = reg;
         }
         ((const void **)user)[0] = pp[0];
         ((const void **)user)[1] = (char *)(uintptr_t)addr + (rv & 1);
@@ -146,17 +146,17 @@ solve_MOV_Rx_R0(const unsigned char *p, uint32_t size, va_list ap, target_addr_t
 static int
 solve_ADD_SP(const unsigned char *p, uint32_t size, va_list ap, target_addr_t addr, void *user)
 {
-    static int min_adj = 65536;
     const unsigned char *pp[2];
     int rv = is_ADD_SP(p, size, ap, addr, pp);
     if (rv && user) {
         assert(rv & 1);
         if (rv < 0) {
             int adj = (int)(long)pp[1];
+            int min_adj = ((uintptr_t *)user)[3];
             if (min_adj <= adj) {
                 return rv;
             }
-            min_adj = adj;
+            ((uintptr_t *)user)[3] = adj;
         }
         ((const void **)user)[0] = pp[0];
         ((const void **)user)[1] = (char *)(uintptr_t)addr + (rv & 1);
@@ -169,17 +169,17 @@ solve_ADD_SP(const unsigned char *p, uint32_t size, va_list ap, target_addr_t ad
 static int
 solve_BLX_R4_SP(const unsigned char *p, uint32_t size, va_list ap, target_addr_t addr, void *user)
 {
-    static int min_reg = 8 + 1;
     const unsigned char *pp[1];
     int rv = is_BLX_R4_SP(p, size, ap, addr, pp);
     if (rv && user) {
         assert(rv & 1);
         if (rv < 0) {
             int reg = popcount(*pp[0]);
+            int min_reg = ((uintptr_t *)user)[2];
             if (min_reg <= reg) {
                 return rv;
             }
-            min_reg = reg;
+            ((uintptr_t *)user)[2] = reg;
         }
         ((const void **)user)[0] = pp[0];
         ((const void **)user)[1] = (char *)(uintptr_t)addr + (rv & 1);
@@ -229,7 +229,7 @@ solve_op(enum R_OP op)
             rv = parse_gadgets(ranges, binmap, NULL, is_ADD_R0_R1);
             break;
         case MOV_R1_R0: {
-            const unsigned char *pp[2] = { NULL, NULL };
+            const unsigned char *pp[3] = { NULL, NULL, (void *)(8 + 1) };
             rv = parse_gadgets(ranges, binmap, pp, solve_MOV_Rx_R0, 1);
             if (pp[1]) {
                 rv = (target_addr_t)(uintptr_t)pp[1];
@@ -242,7 +242,7 @@ solve_op(enum R_OP op)
             rv = parse_gadgets(ranges, binmap, NULL, is_MOV_R0_Rx, 1);
             break;
         case ADD_SP: {
-            const unsigned char *pp[3] = { NULL, NULL, NULL };
+            const unsigned char *pp[4] = { NULL, NULL, NULL, (void *)65536 };
             rv = parse_gadgets(ranges, binmap, pp, solve_ADD_SP, inloop_stack);
             if (pp[1]) {
                 rv = (target_addr_t)(uintptr_t)pp[1];
@@ -260,7 +260,7 @@ solve_op(enum R_OP op)
         case BLX_R4_2:
         case BLX_R4_3:
         case BLX_R4_4: {
-            const unsigned char *pp[2] = { NULL, NULL };
+            const unsigned char *pp[3] = { NULL, NULL, (void *)(8 + 1) };
             rv = parse_gadgets(ranges, binmap, pp, solve_BLX_R4_SP, r->incsp);
             if (pp[1]) {
                 rv = (target_addr_t)(uintptr_t)pp[1];
