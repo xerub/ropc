@@ -7,6 +7,7 @@
 #undef DATA_DEBUG
 #define LEXER_READ_CPP
 #undef SLOW_LOAD_SAVE
+#define MAX_FUNC_ARGS 10
 
 typedef unsigned int target_addr_t;
 

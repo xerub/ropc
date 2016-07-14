@@ -241,14 +241,14 @@ emit_nodes(struct node *n, const char *assignto, BOOL force, BOOL inloop)
             struct call_node *p = AS_CALL(n);
             struct node *parm;
             int deref0 = 0;
-            char *args[8];
+            char *args[MAX_FUNC_ARGS];
             char *func;
             int i;
             BOOL retval = (n->next != NULL) || force || assignto;
             BOOL direct = FALSE;
             for (i = 0, parm = p->parm; parm; parm = parm->next, i++) {
                 BOOL r0 = (i == 0 && arch_regparm);
-                assert(i < 8);
+                assert(i < MAX_FUNC_ARGS);
                 if (parm->type == NODE_IMM) {
                     args[i] = xstrdup(AS_IMM(parm)->value);
                     maybe_symbol_forward(args[i]);

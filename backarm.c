@@ -45,6 +45,8 @@ enum R_OP {
     BLX_R4_2,
     BLX_R4_3,
     BLX_R4_4,
+    BLX_R4_5,
+    BLX_R4_6,
     STR_R0_R4,
     CMP_R0,
     LDR_R4R5,
@@ -82,6 +84,8 @@ static struct R_OPDEF optab[] = {
     { BLX_R4_2,     /**/ R0|R1|R2|R3, /**/             R4|   R7,       /**/             R4|   R7, /**/ 2,   0, "BLX R4 / ADD SP, #8 / POP {...PC}",                                  },
     { BLX_R4_3,     /**/ R0|R1|R2|R3, /**/             R4|   R7,       /**/             R4|   R7, /**/ 3,   0, "BLX R4 / ADD SP, #12 / POP {...PC}",                                 },
     { BLX_R4_4,     /**/ R0|R1|R2|R3, /**/             R4|   R7,       /**/             R4|   R7, /**/ 4,   0, "BLX R4 / ADD SP, #16 / POP {...PC}",                                 },
+    { BLX_R4_5,     /**/ R0|R1|R2|R3, /**/             R4|   R7,       /**/             R4|   R7, /**/ 5,   0, "BLX R4 / ADD SP, #20 / POP {...PC}",                                 },
+    { BLX_R4_6,     /**/ R0|R1|R2|R3, /**/             R4|   R7,       /**/             R4|   R7, /**/ 6,   0, "BLX R4 / ADD SP, #24 / POP {...PC}",                                 },
     { STR_R0_R4,    /**/ 0,           /**/             R4|   R7,       /**/             R4|   R7, /**/ 0,   0, "STR R0, [R4] / POP {R4,R7,PC}",                                      },
     { CMP_R0,       /**/ R0,          /**/             R4|R5|R7,       /**/             R4|R5|R7, /**/ 0,   0, "CMP R0, #0 / IT EQ / MOVEQ R4, R5 / MOV R0, R4 / POP {R4,R5,R7,PC}", },    // (R0 = R0 ? R4 : R5)
     { LDR_R4R5,     /**/ 0,           /**/             R4|R5,          /**/ 0,                    /**/ 0,   0, "POP {R4,R5,PC}",                                                     },
@@ -259,7 +263,9 @@ solve_op(enum R_OP op)
         case BLX_R4_1:
         case BLX_R4_2:
         case BLX_R4_3:
-        case BLX_R4_4: {
+        case BLX_R4_4:
+        case BLX_R4_5:
+        case BLX_R4_6: {
             const unsigned char *pp[3] = { NULL, NULL, (void *)(8 + 1) };
             rv = parse_gadgets(ranges, binmap, pp, solve_BLX_R4_SP, r->incsp);
             if (pp[1]) {
@@ -390,7 +396,9 @@ make1(enum R_OP op, ...)
         case BLX_R4_1:
         case BLX_R4_2:
         case BLX_R4_3:
-        case BLX_R4_4: {
+        case BLX_R4_4:
+        case BLX_R4_5:
+        case BLX_R4_6: {
             char **args = va_arg(ap, char **);
             strip[idx++] = (BRICK)op;
             for (i = 0; i < r->incsp; i++) {
@@ -586,6 +594,8 @@ emit_finalize(void)
             case BLX_R4_2:
             case BLX_R4_3:
             case BLX_R4_4:
+            case BLX_R4_5:
+            case BLX_R4_6:
                 for (i = 0; i < r->incsp; i++) {
                     play_data(*p, i, 'A');
                     free(*p);
@@ -750,7 +760,7 @@ emit_call(const char *func, char **args, int nargs, int deref0, BOOL inloop, BOO
         make1(LABEL, tmp, 0);
     }
     if (!(attr & ATTRIB_STDCALL) && nargs > rargs) {
-        assert(nargs - rargs <= 4);
+        assert(nargs - rargs <= MAX_FUNC_ARGS - 4);
         op += nargs - rargs;
     }
     make1(op, args + rargs);
