@@ -275,20 +275,18 @@ L_var_23 dd    0                             ; -> R1
 ; R4=0 R7=0
         dg    0x2FB91E                      ; -> PC: exit
 ;
-;-- L_vec_9 = {
-	&L_str_7
-	&L_str_8
-	0
-}
-;-- L_str_8 = "firstarg", 0
-;-- L_str_7 = "program", 0
-;-- L_str_6 = "fork failed\n", 0
-;-- L_str_5 = "rv = %x", 0
-;-- L_vec_4 = {
-	&L_str_1
-	0
-}
-;-- L_str_3 = "my_main = %x\n", 0
-;-- L_str_2 = "_mh_execute_header", 0
-;-- L_str_1 = "other_program", 0
-;-- L_str_0 = "got status %x for pid %d\n", 0
+L_vec_9:
+        du L_str_7
+        du L_str_8
+        dd 0
+L_str_8 db "firstarg", 0
+L_str_7 db "program", 0
+L_str_6 db "fork failed\n", 0
+L_str_5 db "rv = %x", 0
+L_vec_4:
+        du L_str_1
+        dd 0
+L_str_3 db "my_main = %x\n", 0
+L_str_2 db "_mh_execute_header", 0
+L_str_1 db "other_program", 0
+L_str_0 db "got status %x for pid %d\n", 0

@@ -131,11 +131,58 @@ try_symbol_attr(const char *key)
 
 
 void
+emit_symbols(void)
+{
+    struct SYM *p;
+    for (p = symtab; p; p = p->next) {
+        if (p->used == UNUSED) {
+            switch (p->type) {
+                case SYMBOL_NORMAL:
+                    if (p->val) {
+                        if (IS_ADDRESS(p->val)) {
+                            printf("%-7s du %s\n", p->key, p->val + 1);
+                        } else if (try_symbol_extern(p->val)) {
+                            printf("%-7s dg    0x%-28X; -> %s\n", p->key, get_symbol(p->val)->addr, p->val);
+                        } else {
+                            printf("%-7s dd %s\n", p->key, p->val);
+                        }
+                    } else {
+                        printf(";-- %s = ?\n", p->key);
+                    }
+                    break;
+                case SYMBOL_STRING:
+                    printf("%-7s db %s, 0\n", p->key, p->val);
+                    break;
+                case SYMBOL_EXTERN:
+                case SYMBOL_LABEL:
+                    break;
+                default: {
+                    int i;
+                    printf("%s:\n", p->key);
+                    for (i = 0; i < p->type; i++) {
+                        char *val = ((char **)p->val)[i];
+                        if (IS_ADDRESS(val)) {
+                            printf("        du %s\n", val + 1);
+                        } else {
+                            printf("        dd %s\n", val);
+                        }
+                        free(val);
+                    }
+                }
+            }
+        }
+    }
+}
+
+
+void
 free_symbols(void)
 {
     struct SYM *p, *q;
+    emit_symbols();
     for (p = symtab; p; ) {
         q = p->next;
+#if 0
         if (p->used == UNUSED) {
             switch (p->type) {
                 case SYMBOL_NORMAL:
@@ -159,6 +206,7 @@ free_symbols(void)
                 }
             }
         }
+#endif
         free(p->key);
         free(p->val);
         free(p);
