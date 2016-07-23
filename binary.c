@@ -75,13 +75,13 @@ find_mapping(uint32_t mappingCount, const struct dyld_cache_mapping_info map[], 
 struct range {
     struct range *next;
     uint64_t offset;
-    uint32_t vmaddr;
+    uint64_t vmaddr;
     uint32_t filesize;
 };
 
 
 static struct range *
-add_range(struct range *ranges, uint64_t offset, uint32_t vmaddr, uint32_t filesize)
+add_range(struct range *ranges, uint64_t offset, uint64_t vmaddr, uint32_t filesize)
 {
     struct range *r;
     for (r = ranges; r; r = r->next) {
@@ -133,16 +133,24 @@ parse_macho_ranges(const unsigned char *p, uint64_t address, struct range *range
     const struct mach_header *hdr = (struct mach_header *)(p + address);
     char *q;
 
-    if (hdr->magic != 0xfeedface) {
+    int is64 = (hdr->magic & 1) * 4;
+
+    if ((hdr->magic & ~1) != 0xfeedface) {
         return ranges;
     }
 
-    q = (char *)(p + address + sizeof(struct mach_header));
+    q = (char *)(p + address + sizeof(struct mach_header) + is64);
     for (i = 0; i < hdr->ncmds; i++) {
         const struct load_command *cmd = (struct load_command *)q;
         uint32_t c = cmd->cmd;
         if (c == LC_SEGMENT) {
             const struct segment_command *seg = (struct segment_command *)q;
+            if (seg->initprot & 4) {
+                ranges = add_range(ranges, address + seg->fileoff, seg->vmaddr, seg->filesize);
+            }
+        }
+        if (c == LC_SEGMENT_64) {
+            const struct segment_command_64 *seg = (struct segment_command_64 *)q;
             if (seg->initprot & 4) {
                 ranges = add_range(ranges, address + seg->fileoff, seg->vmaddr, seg->filesize);
             }
@@ -199,7 +207,7 @@ struct range *
 parse_ranges(const unsigned char *p)
 {
     struct range *ranges;
-    if (!strcmp((char *)p, "dyld_v1   armv6") || !strcmp((char *)p, "dyld_v1   armv7") || !strcmp((char *)p, "dyld_v1  armv7s")) {
+    if (!strcmp((char *)p, "dyld_v1   armv6") || !strcmp((char *)p, "dyld_v1   armv7") || !strcmp((char *)p, "dyld_v1  armv7s") || !strcmp((char *)p, "dyld_v1   arm64")) {
         ranges = parse_cache_ranges(p, NULL);
     } else {
         ranges = parse_macho_ranges(p, 0, NULL);
@@ -208,30 +216,30 @@ parse_ranges(const unsigned char *p)
 }
 
 
-uint32_t
+uint64_t
 parse_gadgets(const struct range *ranges, const unsigned char *p, void *user, callback_t callback, ...)
 {
     const struct range *r;
-    uint32_t found = 0;
+    uint64_t found = 0;
     va_list ap;
     va_start(ap, callback);
     for (r = ranges; r; r = r->next) {
         uint32_t i;
         const unsigned char *buf = p + r->offset;
-        uint32_t addr = r->vmaddr;
+        uint64_t addr = r->vmaddr;
         uint32_t sz = r->filesize;
         for (i = 0; i < sz; i += 2) {
             int rv = callback(buf + i, sz - i, ap, i + addr, user);
             if (rv) {
                 int k;
                 int thumb = (rv & 1);
-                fprintf(stderr, "FOUND = 0x%08X:", i + addr + thumb);
+                fprintf(stderr, "FOUND = 0x%08llX:", addr + thumb + i);
                 for (k = 0; k < 10; k++) {
                     fprintf(stderr, " %02x", buf[i + k]);
                 }
                 fprintf(stderr, "\n");
                 if (rv > 0) {
-                    found = i + addr + thumb;
+                    found = addr + thumb + i;
                     goto done;
                 }
             }
@@ -246,25 +254,25 @@ parse_gadgets(const struct range *ranges, const unsigned char *p, void *user, ca
 /* parser(symbols) */
 
 
-static int
+static uint64_t
 parse_macho_symbols(const unsigned char *p, uint64_t address, const char *key)
 {
     unsigned int i;
     const struct mach_header *hdr = (struct mach_header *)(p + address);
     char *q;
 
-    const struct nlist *base = NULL;
-
     uint32_t stroff = 0;
     uint32_t symoff = 0;
     int iextdefsym = -1;
     int nextdefsym = -1;
 
-    if (hdr->magic != 0xfeedface) {
+    int is64 = (hdr->magic & 1) * 4;
+
+    if ((hdr->magic & ~1) != 0xfeedface) {
         return 0;
     }
 
-    q = (char *)(p + address + sizeof(struct mach_header));
+    q = (char *)(p + address + sizeof(struct mach_header) + is64);
     for (i = 0; i < hdr->ncmds; i++) {
         const struct load_command *cmd = (struct load_command *)q;
         uint32_t c = cmd->cmd;
@@ -282,6 +290,23 @@ parse_macho_symbols(const unsigned char *p, uint64_t address, const char *key)
 
     assert(symoff && stroff && iextdefsym >= 0 && nextdefsym >= 0);
 
+if (is64) {
+    const struct nlist_64 *base = NULL;
+    for (base = (struct nlist_64 *)(p + symoff) + iextdefsym; nextdefsym > 0; nextdefsym /= 2) {
+        const struct nlist_64 *pivot = &base[nextdefsym / 2];
+        int cmp = strcmp(key, (char *)p + stroff + pivot->n_un.n_strx);
+        if (cmp == 0) {
+            int thumb = (pivot->n_desc & N_ARM_THUMB_DEF) != 0;
+            fprintf(stderr, "0x%llX: %s\n", pivot->n_value + thumb, key);
+            return pivot->n_value + thumb;
+        }
+        if (cmp > 0) {
+            base = &pivot[1];
+            --nextdefsym;
+        }
+    }
+} else {
+    const struct nlist *base = NULL;
     for (base = (struct nlist *)(p + symoff) + iextdefsym; nextdefsym > 0; nextdefsym /= 2) {
         const struct nlist *pivot = &base[nextdefsym / 2];
         int cmp = strcmp(key, (char *)p + stroff + pivot->n_un.n_strx);
@@ -295,12 +320,13 @@ parse_macho_symbols(const unsigned char *p, uint64_t address, const char *key)
             --nextdefsym;
         }
     }
+}
 
     return 0;
 }
 
 
-static uint32_t
+static uint64_t
 parse_cache_symbols(const unsigned char *p, const char *key)
 {
     unsigned i;
@@ -335,7 +361,7 @@ parse_cache_symbols(const unsigned char *p, const char *key)
         printf("\tNAME = %s\n", p + img[i].pathFileOffset);
 
         if (j != -1) {
-            uint32_t rv = parse_macho_symbols(p, address - map[j].address + map[j].fileOffset, key);
+            uint64_t rv = parse_macho_symbols(p, address - map[j].address + map[j].fileOffset, key);
             if (rv) {
                 return rv;
             }
@@ -345,11 +371,11 @@ parse_cache_symbols(const unsigned char *p, const char *key)
 }
 
 
-uint32_t
+uint64_t
 parse_symbols(const unsigned char *p, const char *key)
 {
-    uint32_t rv;
-    if (!strcmp((char *)p, "dyld_v1   armv6") || !strcmp((char *)p, "dyld_v1   armv7") || !strcmp((char *)p, "dyld_v1  armv7s")) {
+    uint64_t rv;
+    if (!strcmp((char *)p, "dyld_v1   armv6") || !strcmp((char *)p, "dyld_v1   armv7") || !strcmp((char *)p, "dyld_v1  armv7s") || !strcmp((char *)p, "dyld_v1   arm64")) {
         rv = parse_cache_symbols(p, key);
     } else {
         rv = parse_macho_symbols(p, 0, key);
@@ -414,7 +440,7 @@ _is_popw(const unsigned char *buf, int nregs)
 
 
 int
-is_LOAD_R4(const unsigned char *buf, uint32_t sz, va_list ap, uint32_t addr, void *user)
+is_LOAD_R4(const unsigned char *buf, uint32_t sz, va_list ap, uint64_t addr, void *user)
 {
     // POP {R4,PC}
     return (buf[0] == 0x10 && buf[1] == 0xbd);
@@ -422,7 +448,7 @@ is_LOAD_R4(const unsigned char *buf, uint32_t sz, va_list ap, uint32_t addr, voi
 
 
 int
-is_LOAD_R0(const unsigned char *buf, uint32_t sz, va_list ap, uint32_t addr, void *user)
+is_LOAD_R0(const unsigned char *buf, uint32_t sz, va_list ap, uint64_t addr, void *user)
 {
     // POP {R0,PC}
     return (buf[0] == 0x01 && buf[1] == 0xbd);
@@ -430,7 +456,7 @@ is_LOAD_R0(const unsigned char *buf, uint32_t sz, va_list ap, uint32_t addr, voi
 
 
 int
-is_LOAD_R0R1(const unsigned char *buf, uint32_t sz, va_list ap, uint32_t addr, void *user)
+is_LOAD_R0R1(const unsigned char *buf, uint32_t sz, va_list ap, uint64_t addr, void *user)
 {
     // POP {R0-R1,PC}
     return (buf[0] == 0x03 && buf[1] == 0xbd);
@@ -438,7 +464,7 @@ is_LOAD_R0R1(const unsigned char *buf, uint32_t sz, va_list ap, uint32_t addr, v
 
 
 int
-is_LOAD_R0R3(const unsigned char *buf, uint32_t sz, va_list ap, uint32_t addr, void *user)
+is_LOAD_R0R3(const unsigned char *buf, uint32_t sz, va_list ap, uint64_t addr, void *user)
 {
     // LDMFD SP!, {R0-R3,PC}
     if (buf[0] == 0x0f && buf[1] == 0x80 && buf[2] == 0xbd && buf[3] == 0xe8) {
@@ -453,7 +479,7 @@ is_LOAD_R0R3(const unsigned char *buf, uint32_t sz, va_list ap, uint32_t addr, v
 
 
 int
-is_LOAD_R4R5(const unsigned char *buf, uint32_t sz, va_list ap, uint32_t addr, void *user)
+is_LOAD_R4R5(const unsigned char *buf, uint32_t sz, va_list ap, uint64_t addr, void *user)
 {
     // POP {R4,R5,PC}
     return (buf[0] == 0x30 && buf[1] == 0xbd);
@@ -461,7 +487,7 @@ is_LOAD_R4R5(const unsigned char *buf, uint32_t sz, va_list ap, uint32_t addr, v
 
 
 int
-is_LDR_R0_R0(const unsigned char *buf, uint32_t sz, va_list ap, uint32_t addr, void *user)
+is_LDR_R0_R0(const unsigned char *buf, uint32_t sz, va_list ap, uint64_t addr, void *user)
 {
     // LDR R0,[R0] / POP {R7,PC}
     return (buf[0] == 0x00 && buf[1] == 0x68 && buf[2] == 0x80 && buf[3] == 0xbd);
@@ -469,7 +495,7 @@ is_LDR_R0_R0(const unsigned char *buf, uint32_t sz, va_list ap, uint32_t addr, v
 
 
 int
-is_STR_R0_R4(const unsigned char *buf, uint32_t sz, va_list ap, uint32_t addr, void *user)
+is_STR_R0_R4(const unsigned char *buf, uint32_t sz, va_list ap, uint64_t addr, void *user)
 {
     // STR R0,[R4] / POP {R4,R7,PC}
     return (buf[0] == 0x20 && buf[1] == 0x60 && buf[2] == 0x90 && buf[3] == 0xbd);
@@ -477,7 +503,7 @@ is_STR_R0_R4(const unsigned char *buf, uint32_t sz, va_list ap, uint32_t addr, v
 
 
 int
-is_ADD_R0_R1(const unsigned char *buf, uint32_t sz, va_list ap, uint32_t addr, void *user)
+is_ADD_R0_R1(const unsigned char *buf, uint32_t sz, va_list ap, uint64_t addr, void *user)
 {
     // ADD R0,R1 / POP {R7,PC}
     return (buf[0] == 0x08 && buf[1] == 0x44 && buf[2] == 0x80 && buf[3] == 0xbd);
@@ -485,7 +511,7 @@ is_ADD_R0_R1(const unsigned char *buf, uint32_t sz, va_list ap, uint32_t addr, v
 
 
 int
-is_BLX_R4(const unsigned char *buf, uint32_t sz, va_list ap, uint32_t addr, void *user)
+is_BLX_R4(const unsigned char *buf, uint32_t sz, va_list ap, uint64_t addr, void *user)
 {
     // BLX R4 / POP {R4,R7,PC}
     return (buf[0] == 0xa0 && buf[1] == 0x47 && buf[2] == 0x90 && buf[3] == 0xbd);
@@ -493,7 +519,7 @@ is_BLX_R4(const unsigned char *buf, uint32_t sz, va_list ap, uint32_t addr, void
 
 
 int
-is_BLX_R4_SP(const unsigned char *buf, uint32_t sz, va_list ap, uint32_t addr, void *user)
+is_BLX_R4_SP(const unsigned char *buf, uint32_t sz, va_list ap, uint64_t addr, void *user)
 {
     // BLX R4 / adjust stack / POP {R7,PC}
     if (buf[0] == 0xa0 && buf[1] == 0x47) {
@@ -531,7 +557,7 @@ is_BLX_R4_SP(const unsigned char *buf, uint32_t sz, va_list ap, uint32_t addr, v
 
 
 int
-is_RET_0(const unsigned char *buf, uint32_t sz, va_list ap, uint32_t addr, void *user)
+is_RET_0(const unsigned char *buf, uint32_t sz, va_list ap, uint64_t addr, void *user)
 {
     // MOVS R0, #0 / BX LR
     return (buf[0] == 0x00 && buf[1] == 0x20 && buf[2] == 0x70 && buf[3] == 0x47);
@@ -539,7 +565,7 @@ is_RET_0(const unsigned char *buf, uint32_t sz, va_list ap, uint32_t addr, void 
 
 
 int
-is_ADD_SP(const unsigned char *buf, uint32_t sz, va_list ap, uint32_t addr, void *user)
+is_ADD_SP(const unsigned char *buf, uint32_t sz, va_list ap, uint64_t addr, void *user)
 {
     // ADD SP, #? / POP {R7,PC}
     const unsigned char *ptr = NULL;
@@ -586,7 +612,7 @@ is_ADD_SP(const unsigned char *buf, uint32_t sz, va_list ap, uint32_t addr, void
 
 
 int
-is_MOV_Rx_R0(const unsigned char *buf, uint32_t sz, va_list ap, uint32_t addr, void *user)
+is_MOV_Rx_R0(const unsigned char *buf, uint32_t sz, va_list ap, uint64_t addr, void *user)
 {
     // MOV Rx, R0 / POP {...PC}
     if (buf[1] == 0x46 && _is_pop_pc(buf + 2, -1)) {
@@ -607,7 +633,7 @@ is_MOV_Rx_R0(const unsigned char *buf, uint32_t sz, va_list ap, uint32_t addr, v
 
 
 int
-is_MOV_R0_Rx(const unsigned char *buf, uint32_t sz, va_list ap, uint32_t addr, void *user)
+is_MOV_R0_Rx(const unsigned char *buf, uint32_t sz, va_list ap, uint64_t addr, void *user)
 {
     // MOV R0, Rx / POP {...PC}
     if (buf[1] == 0x46 && _is_pop_pc(buf + 2, 1)) {
@@ -627,7 +653,7 @@ is_MOV_R0_Rx(const unsigned char *buf, uint32_t sz, va_list ap, uint32_t addr, v
 
 
 int
-is_COMPARE(const unsigned char *buf, uint32_t sz, va_list ap, uint32_t addr, void *user)
+is_COMPARE(const unsigned char *buf, uint32_t sz, va_list ap, uint64_t addr, void *user)
 {
     // CMP R0, #0 / IT EQ / MOVEQ R4, R5 / MOV R0, R4 / POP {R4,R5,R7,PC}
     if (buf[0] == 0x00 && buf[1] == 0x28 &&
@@ -642,7 +668,7 @@ is_COMPARE(const unsigned char *buf, uint32_t sz, va_list ap, uint32_t addr, voi
 
 
 static int
-is_reg_pivot(const unsigned char *buf, uint32_t sz, va_list ap, uint32_t addr, void *user)
+is_reg_pivot(const unsigned char *buf, uint32_t sz, va_list ap, uint64_t addr, void *user)
 {
     int next = 0;
     if ((buf[1] & 0xFE) == 0x18) {
@@ -671,7 +697,7 @@ is_reg_pivot(const unsigned char *buf, uint32_t sz, va_list ap, uint32_t addr, v
 
 
 static int
-is_reg_pivot_alt(const unsigned char *buf, uint32_t sz, va_list ap, uint32_t addr, void *user)
+is_reg_pivot_alt(const unsigned char *buf, uint32_t sz, va_list ap, uint64_t addr, void *user)
 {
     if ((buf[1] & 0xFE) == 0x18) {
         int src1;
@@ -692,7 +718,7 @@ is_reg_pivot_alt(const unsigned char *buf, uint32_t sz, va_list ap, uint32_t add
 
 
 int
-is_ldmia(const unsigned char *buf, uint32_t sz, va_list ap, uint32_t addr, void *user)
+is_ldmia(const unsigned char *buf, uint32_t sz, va_list ap, uint64_t addr, void *user)
 {
 /*
 FF FF 96 E9 <- 8 == LDMIA, 9 = LDMIB
@@ -736,7 +762,7 @@ FF FF 96 E9 <- 8 == LDMIA, 9 = LDMIB
 
 
 int
-is_ldmiaw(const unsigned char *buf, uint32_t sz, va_list ap, uint32_t addr, void *user)
+is_ldmiaw(const unsigned char *buf, uint32_t sz, va_list ap, uint64_t addr, void *user)
 {
 /*
 94 E8 FF 80 <- & 0xA == 0xA (SP+PC)
@@ -778,7 +804,7 @@ is_ldmiaw(const unsigned char *buf, uint32_t sz, va_list ap, uint32_t addr, void
 
 
 int
-is_string(const unsigned char *buf, uint32_t sz, va_list ap, uint32_t addr, void *user)
+is_string(const unsigned char *buf, uint32_t sz, va_list ap, uint64_t addr, void *user)
 {
     int rv = 1;
     int nibble;
