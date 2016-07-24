@@ -543,7 +543,7 @@ is_BLX_R4_SP(const unsigned char *buf, uint32_t sz, va_list ap, uint64_t addr, v
             }
             if (sum == add && _is_pop_pc(ptr, -1)) {
                 if (user) {
-                    ((const void **)user)[0] = ptr;
+                    ((uint64_t *)user)[0] = (uintptr_t)ptr;
                 }
                 return -1;
             }
@@ -600,8 +600,8 @@ is_ADD_SP(const unsigned char *buf, uint32_t sz, va_list ap, uint64_t addr, void
             va_end(aq);
             if (sum >= add) {
                 if (user) {
-                    ((const void **)user)[0] = ptr;
-                    ((void **)user)[1] = (void *)(long)sum;
+                    ((uint64_t *)user)[0] = (uintptr_t)ptr;
+                    ((uint64_t *)user)[1] = sum;
                 }
                 return (sum == add) ? 1 : -1;
             }
@@ -623,7 +623,7 @@ is_MOV_Rx_R0(const unsigned char *buf, uint32_t sz, va_list ap, uint64_t addr, v
             reg = va_arg(aq, int);	// register
             va_end(aq);
             if ((buf[0] & 0x87) == (((reg & 8) << 4) | (reg & 7))) {
-                ((const void **)user)[0] = buf + 2;
+                ((uint64_t *)user)[0] = (uintptr_t)buf + 2;
                 return -1;
             }
         }
@@ -744,7 +744,7 @@ FF FF 96 E9 <- 8 == LDMIA, 9 = LDMIB
         if ((buf[2] & 0xF) == reg &&
             (nregs < 0 || (__builtin_popcount(buf[0]) + __builtin_popcount(buf[1] & 0x1F)) == nregs)) {
             if (user) {
-                ((const void **)user)[0] = buf;
+                ((uint64_t *)user)[0] = (uintptr_t)buf;
             }
 #if 1
             if ((buf[2] & 0xF0) == 0x90 && buf[3] == 0xE8) {
@@ -786,7 +786,7 @@ is_ldmiaw(const unsigned char *buf, uint32_t sz, va_list ap, uint64_t addr, void
         if ((buf[0] & 0xF) == reg &&
             (nregs < 0 || (__builtin_popcount(buf[2]) + __builtin_popcount(buf[3] & 0x1F)) == nregs)) {
             if (user) {
-                ((const void **)user)[0] = buf;
+                ((uint64_t *)user)[0] = (uintptr_t)buf;
             }
 #if 1
             if ((buf[0] & 0xF0) == 0x90) {

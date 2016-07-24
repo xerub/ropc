@@ -29,7 +29,7 @@ struct SYM {
     char *val;
     enum use_t used;
     int idx;			/* label specific */
-    unsigned int addr;		/* extern specific */
+    unsigned long long addr;	/* extern specific */
 };
 
 const struct SYM *get_symbol(const char *key);
@@ -48,7 +48,7 @@ void free_symbols(void);
 
 char *add_string(const char *arg);
 char *add_vector(const char **args, int narg);
-void add_extern(const char *import, unsigned int addr, int attr);
+void add_extern(const char *import, unsigned long long addr, int attr);
 void add_label(const char *label, int idx);
 
 const char *get_label_with_label(const char *target);

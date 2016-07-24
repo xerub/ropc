@@ -9,8 +9,6 @@
 #undef SLOW_LOAD_SAVE
 #define MAX_FUNC_ARGS 10
 
-typedef unsigned int target_addr_t;
-
 extern int arch_regparm;
 extern int optimize_imm;
 extern int optimize_add;

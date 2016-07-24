@@ -10,7 +10,7 @@
 #include "symtab.h"
 
 
-static target_addr_t
+static uint64_t
 solve_import(const char *p)
 {
     return hash(p);

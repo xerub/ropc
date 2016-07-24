@@ -142,7 +142,7 @@ emit_symbols(void)
                         if (IS_ADDRESS(p->val)) {
                             printf("%-7s du %s\n", p->key, p->val + 1);
                         } else if (try_symbol_extern(p->val)) {
-                            printf("%-7s dg    0x%-28X; -> %s\n", p->key, get_symbol(p->val)->addr, p->val);
+                            printf("%-7s dg    0x%-28llX; -> %s\n", p->key, get_symbol(p->val)->addr, p->val);
                         } else {
                             printf("%-7s dd %s\n", p->key, p->val);
                         }
@@ -250,7 +250,7 @@ add_vector(const char **args, int narg)
 
 
 void
-add_extern(const char *import, unsigned int addr, int attr)
+add_extern(const char *import, unsigned long long addr, int attr)
 {
     const struct SYM *p = get_symbol(import);
     if (p) {

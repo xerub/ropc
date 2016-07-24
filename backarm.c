@@ -65,7 +65,7 @@ struct R_OPDEF {
     int output;         // which registers will be loaded from stack
     int auxout;         // which registers will be loaded from stack as a side-effect
     int incsp;
-    target_addr_t addr;
+    uint64_t addr;
     const char *text;
 };
 
@@ -108,11 +108,11 @@ static int pointer[16] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 struct range *ranges = NULL;
 
 
-static target_addr_t
+static uint64_t
 solve_import(const char *p)
 {
     if (binmap) {
-        target_addr_t rv;
+        uint64_t rv;
         char *tmp = prepend('_', p);
         rv = parse_symbols(binmap, tmp);
         free(tmp);
@@ -126,67 +126,70 @@ solve_import(const char *p)
 
 
 static int
-solve_MOV_Rx_R0(const unsigned char *p, uint32_t size, va_list ap, target_addr_t addr, void *user)
+solve_MOV_Rx_R0(const unsigned char *p, uint32_t size, va_list ap, uint64_t addr, void *user)
 {
-    const unsigned char *pp[1];
+    uint64_t pp[1];
     int rv = is_MOV_Rx_R0(p, size, ap, addr, pp);
     if (rv && user) {
+        const unsigned char *ptr = (unsigned char *)(uintptr_t)pp[0];
         assert(rv & 1);
         if (rv < 0) {
-            int reg = popcount(*pp[0]);
-            int min_reg = ((uintptr_t *)user)[2];
+            int reg = popcount(*ptr);
+            int min_reg = ((uint64_t *)user)[2];
             if (min_reg <= reg) {
                 return rv;
             }
-            ((uintptr_t *)user)[2] = reg;
+            ((uint64_t *)user)[2] = reg;
         }
-        ((const void **)user)[0] = pp[0];
-        ((const void **)user)[1] = (char *)(uintptr_t)addr + (rv & 1);
+        ((uint64_t *)user)[0] = *ptr;
+        ((uint64_t *)user)[1] = addr + (rv & 1);
     }
     return rv;
 }
 
 
 static int
-solve_ADD_SP(const unsigned char *p, uint32_t size, va_list ap, target_addr_t addr, void *user)
+solve_ADD_SP(const unsigned char *p, uint32_t size, va_list ap, uint64_t addr, void *user)
 {
-    const unsigned char *pp[2];
+    uint64_t pp[2];
     int rv = is_ADD_SP(p, size, ap, addr, pp);
     if (rv && user) {
+        const unsigned char *ptr = (unsigned char *)(uintptr_t)pp[0];
         assert(rv & 1);
         if (rv < 0) {
-            int adj = (int)(long)pp[1];
-            int min_adj = ((uintptr_t *)user)[3];
+            int adj = pp[1];
+            int min_adj = ((uint64_t *)user)[3];
             if (min_adj <= adj) {
                 return rv;
             }
-            ((uintptr_t *)user)[3] = adj;
+            ((uint64_t *)user)[3] = adj;
         }
-        ((const void **)user)[0] = pp[0];
-        ((const void **)user)[1] = (char *)(uintptr_t)addr + (rv & 1);
-        ((const void **)user)[2] = pp[1];
+        ((uint64_t *)user)[0] = *ptr;
+        ((uint64_t *)user)[1] = addr + (rv & 1);
+        ((uint64_t *)user)[2] = pp[1];
     }
     return rv;
 }
 
 
 static int
-solve_BLX_R4_SP(const unsigned char *p, uint32_t size, va_list ap, target_addr_t addr, void *user)
+solve_BLX_R4_SP(const unsigned char *p, uint32_t size, va_list ap, uint64_t addr, void *user)
 {
-    const unsigned char *pp[1];
+    uint64_t pp[1];
     int rv = is_BLX_R4_SP(p, size, ap, addr, pp);
     if (rv && user) {
+        const unsigned char *ptr = (unsigned char *)(uintptr_t)pp[0];
         assert(rv & 1);
         if (rv < 0) {
-            int reg = popcount(*pp[0]);
-            int min_reg = ((uintptr_t *)user)[2];
+            int reg = popcount(*ptr);
+            int min_reg = ((uint64_t *)user)[2];
             if (min_reg <= reg) {
                 return rv;
             }
-            ((uintptr_t *)user)[2] = reg;
+            ((uint64_t *)user)[2] = reg;
         }
-        ((const void **)user)[0] = pp[0];
-        ((const void **)user)[1] = (char *)(uintptr_t)addr + (rv & 1);
+        ((uint64_t *)user)[0] = *ptr;
+        ((uint64_t *)user)[1] = addr + (rv & 1);
     }
     return rv;
 }
@@ -196,7 +199,7 @@ solve_BLX_R4_SP(const unsigned char *p, uint32_t size, va_list ap, target_addr_t
 static void
 solve_op(enum R_OP op)
 {
-    target_addr_t rv = 0;
+    uint64_t rv = 0;
     struct R_OPDEF *r = &optab[op];
     if (r->addr) {
         return;
@@ -233,11 +236,11 @@ solve_op(enum R_OP op)
             rv = parse_gadgets(ranges, binmap, NULL, is_ADD_R0_R1);
             break;
         case MOV_R1_R0: {
-            const unsigned char *pp[3] = { NULL, NULL, (void *)(8 + 1) };
+            uint64_t pp[3] = { 0, 0, 8 + 1 };
             rv = parse_gadgets(ranges, binmap, pp, solve_MOV_Rx_R0, 1);
             if (pp[1]) {
-                rv = (target_addr_t)(uintptr_t)pp[1];
-                r->output = *pp[0];
+                rv = pp[1];
+                r->output = pp[0];
                 r->auxout = r->output;
             }
             break;
@@ -246,14 +249,14 @@ solve_op(enum R_OP op)
             rv = parse_gadgets(ranges, binmap, NULL, is_MOV_R0_Rx, 1);
             break;
         case ADD_SP: {
-            const unsigned char *pp[4] = { NULL, NULL, NULL, (void *)65536 };
+            uint64_t pp[4] = { 0, 0, 0, 65536 };
             rv = parse_gadgets(ranges, binmap, pp, solve_ADD_SP, inloop_stack);
             if (pp[1]) {
-                rv = (target_addr_t)(uintptr_t)pp[1];
-                r->output = *pp[0];
+                rv = pp[1];
+                r->output = pp[0];
                 r->auxout = r->output;
                 r->spill = r->output;
-                r->incsp = (int)(long)pp[2];
+                r->incsp = pp[2];
             }
             break;
         }
@@ -266,11 +269,11 @@ solve_op(enum R_OP op)
         case BLX_R4_4:
         case BLX_R4_5:
         case BLX_R4_6: {
-            const unsigned char *pp[3] = { NULL, NULL, (void *)(8 + 1) };
+            uint64_t pp[3] = { 0, 0, 8 + 1 };
             rv = parse_gadgets(ranges, binmap, pp, solve_BLX_R4_SP, r->incsp);
             if (pp[1]) {
-                rv = (target_addr_t)(uintptr_t)pp[1];
-                r->output = *pp[0];
+                rv = pp[1];
+                r->output = pp[0];
                 r->auxout = r->output;
             }
             break;
@@ -286,15 +289,17 @@ solve_op(enum R_OP op)
             break;
         case LDMIA_R0:
         case LDMIA_R0_C: {
-            const unsigned char *p;
-            rv = parse_gadgets(ranges, binmap, &p, is_ldmia, 0, -1, R0|R4);
+            uint64_t pp[1];
+            rv = parse_gadgets(ranges, binmap, pp, is_ldmia, 0, -1, R0|R4);
             if (rv) {
-                r->output = (p[1] << 8) | p[0];
+                const unsigned char *ptr = (unsigned char *)(uintptr_t)pp[0];
+                r->output = (ptr[1] << 8) | ptr[0];
                 r->auxout = r->output & ~(SP|PC);
             } else {
-                rv = parse_gadgets(ranges, binmap, &p, is_ldmiaw, 0, -1, 0);
+                rv = parse_gadgets(ranges, binmap, pp, is_ldmiaw, 0, -1, 0);
                 if (rv) {
-                    r->output = (p[3] << 8) | p[2];
+                    const unsigned char *ptr = (unsigned char *)(uintptr_t)pp[0];
+                    r->output = (ptr[3] << 8) | ptr[2];
                     r->auxout = r->output & ~(SP|PC);
                 }
             }
@@ -488,7 +493,7 @@ play_data(const char *arg, int i, int ch)
                 assert(k < idx);
                 j = (int)(long)strip[k];
             } while (j == LABEL);
-            printf("        dg    0x%-28X; -> PC: %s\n", optab[j].addr, optab[j].text);
+            printf("        dg    0x%-28llX; -> PC: %s\n", optab[j].addr, optab[j].text);
             return;
         }
         if (IS_ADDRESS(arg)) {
@@ -498,7 +503,7 @@ play_data(const char *arg, int i, int ch)
         p = get_symbol(arg);
         if (p) {
             if (p->type == SYMBOL_EXTERN) {
-                printf("        dg    0x%-28X; -> %c%d: %s\n", p->addr, ch, i, arg);
+                printf("        dg    0x%-28llX; -> %c%d: %s\n", p->addr, ch, i, arg);
             } else if (p->type == SYMBOL_LABEL) {
                 printf("        du    %-30s; -> %c%d\n", p->key, ch, i);
             } else {
@@ -506,7 +511,7 @@ play_data(const char *arg, int i, int ch)
                 if (p->val && IS_ADDRESS(p->val)) {
                     printf("%-7s du    %-30s; -> %c%d\n", arg, p->val + 1, ch, i);
                 } else if (p->val && try_symbol_extern(p->val)) {
-                    printf("%-7s dg    0x%-28X; -> %s\n", arg, p->addr, p->val);
+                    printf("%-7s dg    0x%-28llX; -> %s\n", arg, p->addr, p->val);
                 } else {
                     printf("%-7s dd    %-30s; -> %c%d\n", arg, p->val ? p->val : "0", ch, i);
                 }
@@ -549,11 +554,11 @@ emit_finalize(void)
             if (p->type != SYMBOL_EXTERN) {
                 printf("%-7s dd    %-30s; -> PC\n", arg, p->val ? p->val : "0");
             } else {
-                printf("        dg    0x%-28X; -> PC: %s\n", p->addr, arg);
+                printf("        dg    0x%-28llX; -> PC: %s\n", p->addr, arg);
             }
             free(arg);
         } else {
-            printf("        dg    0x%-28X; -> PC: %s\n", r->addr, r->text);
+            printf("        dg    0x%-28llX; -> PC: %s\n", r->addr, r->text);
         }
         if (op == ADD_SP) {
             printf("        times 0x%x dd 0\n", r->incsp);
