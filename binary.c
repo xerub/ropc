@@ -207,7 +207,7 @@ struct range *
 parse_ranges(const unsigned char *p)
 {
     struct range *ranges;
-    if (!strcmp((char *)p, "dyld_v1   armv6") || !strcmp((char *)p, "dyld_v1   armv7") || !strcmp((char *)p, "dyld_v1  armv7s") || !strcmp((char *)p, "dyld_v1   arm64")) {
+    if (!strncmp((char *)p, "dyld_v1   arm", 13) || !strncmp((char *)p, "dyld_v1  arm", 12)) {
         ranges = parse_cache_ranges(p, NULL);
     } else {
         ranges = parse_macho_ranges(p, 0, NULL);
@@ -375,7 +375,7 @@ uint64_t
 parse_symbols(const unsigned char *p, const char *key)
 {
     uint64_t rv;
-    if (!strcmp((char *)p, "dyld_v1   armv6") || !strcmp((char *)p, "dyld_v1   armv7") || !strcmp((char *)p, "dyld_v1  armv7s") || !strcmp((char *)p, "dyld_v1   arm64")) {
+    if (!strncmp((char *)p, "dyld_v1   arm", 13) || !strncmp((char *)p, "dyld_v1  arm", 12)) {
         rv = parse_cache_symbols(p, key);
     } else {
         rv = parse_macho_symbols(p, 0, key);
