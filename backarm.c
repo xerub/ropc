@@ -61,9 +61,9 @@ enum R_OP {
 
 struct R_OPDEF {
     enum R_OP op;
-    int spill;          // which registers are undefined
-    int output;         // which registers will be loaded from stack
-    int auxout;         // which registers will be loaded from stack as a side-effect
+    unsigned spill;     // which registers are undefined
+    unsigned output;    // which registers will be loaded from stack
+    unsigned auxout;    // which registers will be loaded from stack as a side-effect
     int incsp;
     uint64_t addr;
     const char *text;
@@ -102,7 +102,7 @@ static struct R_OPDEF optab[] = {
 static int idx = 0;
 static BRICK strip[1024];
 
-static int dirty = 0xFFFF;
+static unsigned dirty = 0xFFFF;
 static int pointer[16] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 
 struct range *ranges = NULL;
@@ -330,7 +330,7 @@ make1(enum R_OP op, ...)
 {
     int i;
     const struct R_OPDEF *r = &optab[op];
-    int spill = r->spill;
+    unsigned spill = r->spill;
     va_list ap;
     va_start(ap, op);
     assert(idx < 1000);
@@ -417,8 +417,8 @@ make1(enum R_OP op, ...)
         case LABEL:
             strip[idx++] = (BRICK)op;
             strip[idx++] = argdup(va_arg(ap, char *));
-            spill = va_arg(ap, int);
-            strip[idx++] = (BRICK)(long)spill;
+            spill = va_arg(ap, unsigned);
+            strip[idx++] = (BRICK)(unsigned long)spill;
             break;
         case CMP_R0:
             strip[idx++] = (BRICK)op;
@@ -537,7 +537,7 @@ emit_finalize(void)
         int ldmia_reuse = 0;
         if (op == LABEL) {
             BRICK arg = *p++;
-            int spill = (int)(long)*p++;
+            unsigned spill = (unsigned long)*p++;
             printf("%s:\n", arg);
             free(arg);
             if (!spill) {
