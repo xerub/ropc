@@ -240,3 +240,6 @@ backend_name(void)
 {
     return "text";
 }
+
+
+int arch_regparm = 4;

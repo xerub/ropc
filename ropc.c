@@ -34,7 +34,6 @@
 #include "backend.h"
 
 
-int arch_regparm = 4;
 int optimize_imm = 0;
 int optimize_add = 0;
 int optimize_reg = 0;

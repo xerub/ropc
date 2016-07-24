@@ -914,3 +914,6 @@ backend_name(void)
 {
     return "ARM";
 }
+
+
+int arch_regparm = 4;
