@@ -146,6 +146,8 @@ emit_symbols(void)
                         } else {
                             printf("%-7s dd    %s\n", p->key, p->val);
                         }
+                    } else if (p->attr & ATTRIB_VOLATILE) {
+                        printf("%-7s dd    0\n", p->key);
                     } else {
                         printf(";-- %s = ?\n", p->key);
                     }
