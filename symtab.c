@@ -140,18 +140,18 @@ emit_symbols(void)
                 case SYMBOL_NORMAL:
                     if (p->val) {
                         if (IS_ADDRESS(p->val)) {
-                            printf("%-7s du %s\n", p->key, p->val + 1);
+                            printf("%-7s du    %s\n", p->key, p->val + 1);
                         } else if (try_symbol_extern(p->val)) {
                             printf("%-7s dg    0x%-28llX; -> %s\n", p->key, get_symbol(p->val)->addr, p->val);
                         } else {
-                            printf("%-7s dd %s\n", p->key, p->val);
+                            printf("%-7s dd    %s\n", p->key, p->val);
                         }
                     } else {
                         printf(";-- %s = ?\n", p->key);
                     }
                     break;
                 case SYMBOL_STRING:
-                    printf("%-7s db %s, 0\n", p->key, p->val);
+                    printf("%-7s db    %s, 0\n", p->key, p->val);
                     break;
                 case SYMBOL_EXTERN:
                 case SYMBOL_LABEL:
@@ -162,9 +162,9 @@ emit_symbols(void)
                     for (i = 0; i < p->type; i++) {
                         char *val = ((char **)p->val)[i];
                         if (IS_ADDRESS(val)) {
-                            printf("        du %s\n", val + 1);
+                            printf("        du    %s\n", val + 1);
                         } else {
-                            printf("        dd %s\n", val);
+                            printf("        dd    %s\n", val);
                         }
                         free(val);
                     }
