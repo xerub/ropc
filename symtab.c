@@ -152,6 +152,7 @@ emit_symbols(void)
                     break;
                 case SYMBOL_STRING:
                     printf("%-7s db    %s, 0\n", p->key, p->val);
+                    printf("        align 4\n");
                     break;
                 case SYMBOL_EXTERN:
                 case SYMBOL_LABEL:
