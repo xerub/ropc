@@ -176,6 +176,12 @@ R_immediate_exp(void)
         LEAVE();
         return n;
     }
+    if (IS(T_ID) && try_symbol_extern(token.sym)) {
+        n->value = xstrdup(token.sym);
+        next_token(); /* skip ID */
+        LEAVE();
+        return n;
+    }
     expect("immediate");
 }
 

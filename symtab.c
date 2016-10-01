@@ -166,6 +166,8 @@ emit_symbols(void)
                         char *val = ((char **)p->val)[i];
                         if (IS_ADDRESS(val)) {
                             printf("        du    %s\n", val + 1);
+                        } else if (try_symbol_extern(val)) {
+                            printf("        dg    0x%-28llX; -> %s\n", get_symbol(val)->addr, val);
                         } else {
                             printf("        dd    %s\n", val);
                         }
