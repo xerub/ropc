@@ -27,9 +27,9 @@ char *xstrdup(const char *s);
 char *new_name(const char *tmpl);
 char *prepend(int ch, const char *str);
 
-char *create_address_str(const char *str);
+char *create_address_str(const char *str, int offset);
 char *create_number_str(BOOL negative, const char *str);
-char *create_sum_str(const char *str1, const char *str2);
+char *create_op_str(const char *str1, const char *str2, int op);
 
 char *copy_address_sym(const char *str);
 

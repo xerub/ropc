@@ -246,6 +246,7 @@ emit_nodes(struct node *n, const char *assignto, BOOL force, BOOL inloop)
             int i;
             BOOL retval = (n->next != NULL) || force || assignto;
             BOOL direct = FALSE;
+            memset(args, 0, sizeof(args));
             for (i = 0, parm = p->parm; parm; parm = parm->next, i++) {
                 BOOL r0 = (i == 0 && arch_regparm);
                 assert(i < MAX_FUNC_ARGS);
@@ -265,7 +266,7 @@ emit_nodes(struct node *n, const char *assignto, BOOL force, BOOL inloop)
                     emit_nodes(parm, NULL, TRUE, inloop);
                 } else if (r0 && parm->type == NODE_LVAL) {
                     struct lval_node *q = AS_LVAL(parm);
-                    args[i] = create_address_str(q->name);
+                    args[i] = create_address_str(q->name, 0);
                     deref0 = 1;
                     if (q->deref) {
                         deref0++;
@@ -327,7 +328,7 @@ emit_nodes(struct node *n, const char *assignto, BOOL force, BOOL inloop)
                     deref0 = TRUE;
                 }
             } else if (prev->type == NODE_LVAL) {
-                prev_tmp = create_address_str(AS_LVAL(prev)->name);
+                prev_tmp = create_address_str(AS_LVAL(prev)->name, 0);
                 deref0 = 1;
                 if (AS_LVAL(prev)->deref) {
                     deref0++;
@@ -352,7 +353,7 @@ emit_nodes(struct node *n, const char *assignto, BOOL force, BOOL inloop)
                         deref0 = 1;
                     }
                 } else if (term->type == NODE_LVAL && !deref0) {
-                    tmp = create_address_str(AS_LVAL(term)->name);
+                    tmp = create_address_str(AS_LVAL(term)->name, 0);
                     deref0 = 1;
                     if (AS_LVAL(term)->deref) {
                         swap = TRUE;

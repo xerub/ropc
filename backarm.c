@@ -682,7 +682,7 @@ emit_load_direct(const char *value, BOOL deref0)
 void
 emit_load_indirect(const char *lvalue, BOOL deref0)
 {
-    char *tmp = create_address_str(lvalue);
+    char *tmp = create_address_str(lvalue, 0);
     make1(LDR_R0, tmp);
     make1(LDR_R0_R0);
     if (deref0) {
@@ -695,7 +695,7 @@ emit_load_indirect(const char *lvalue, BOOL deref0)
 void
 emit_store_indirect(const char *lvalue)
 {
-    char *tmp = create_address_str(lvalue);
+    char *tmp = create_address_str(lvalue, 0);
     make1(LDR_R4, tmp);
     make1(STR_R0_R4);
     free(tmp);
@@ -765,7 +765,7 @@ emit_call(const char *func, char **args, int nargs, int deref0, BOOL inloop, BOO
         make1(LABEL, tmp, 0);
     }
     if (!(attr & ATTRIB_STDCALL) && nargs > rargs) {
-        assert(nargs - rargs <= MAX_FUNC_ARGS - 4);
+        assert(nargs - rargs <= 6);
         op += nargs - rargs;
     }
     make1(op, args + rargs);
@@ -896,7 +896,7 @@ void
 emit_extern(const char *import, int attr)
 {
     /* should not emit anything, but add symbol as extern */
-    printf("### extern %s\n", import);
+    printf(";;; extern %s\n", import);
     add_extern(import, solve_import(import), attr);
 }
 
@@ -905,7 +905,13 @@ void
 emit_fast(const char *var, const char *val)
 {
     /* should not emit anything, this is for informative purposes only */
-    printf("### %s := %s\n", var, val);
+    printf(";;; %s := %s\n", var, val);
+}
+
+
+void
+emit_initialize(void)
+{
 }
 
 

@@ -1,6 +1,7 @@
 #ifndef BACKEND_H_
 #define BACKEND_H_
 
+void emit_initialize(void);
 void emit_finalize(void);
 
 void emit_load_direct(const char *value, BOOL deref0);

@@ -28,5 +28,6 @@ int is_MOV_R0_Rx(const unsigned char *buf, uint32_t sz, va_list ap, uint64_t add
 int is_COMPARE(const unsigned char *buf, uint32_t sz, va_list ap, uint64_t addr, void *user);
 int is_ldmia(const unsigned char *buf, uint32_t sz, va_list ap, uint64_t addr, void *user);
 int is_ldmiaw(const unsigned char *buf, uint32_t sz, va_list ap, uint64_t addr, void *user);
+int is_string(const unsigned char *buf, uint32_t sz, va_list ap, uint64_t addr, void *user);
 
 #endif

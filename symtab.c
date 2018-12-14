@@ -184,7 +184,6 @@ void
 free_symbols(void)
 {
     struct SYM *p, *q;
-    emit_symbols();
     for (p = symtab; p; ) {
         q = p->next;
 #if 0

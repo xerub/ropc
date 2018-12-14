@@ -67,8 +67,19 @@ prepend(int ch, const char *str)
 
 
 char *
-create_address_str(const char *str)
+create_address_str(const char *str, int offset)
 {
+    if (offset) {
+        int len = strlen(str) + 1;
+        char *p = malloc(len + 16);
+        if (p) {
+            p[0] = '&';
+            memcpy(p + 1, str, len - 1);
+            sprintf(p + len, " %+d", offset);
+        }
+        assert(p);
+        return p;
+    }
     return prepend('&', str);
 }
 
@@ -102,7 +113,7 @@ create_number_str(BOOL negative, const char *str)
 
 
 char *
-create_sum_str(const char *str1, const char *str2)
+create_op_str(const char *str1, const char *str2, int op)
 {
     int len1;
     int len2;
@@ -119,7 +130,9 @@ create_sum_str(const char *str1, const char *str2)
     p = malloc(len1 + 3 + len2);
     if (p) {
         memcpy(p, str1, len1);
-        strcpy(p + len1, " + ");
+        p[len1 + 0] = ' ';
+        p[len1 + 1] = op;
+        p[len1 + 2] = ' ';
         memcpy(p + len1 + 3, str2, len2);
     }
     assert(p);

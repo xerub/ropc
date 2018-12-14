@@ -7,7 +7,7 @@
 #undef DATA_DEBUG
 #define LEXER_READ_CPP
 #undef SLOW_LOAD_SAVE
-#define MAX_FUNC_ARGS 10
+#define MAX_FUNC_ARGS 16
 
 extern int arch_regparm;
 extern int optimize_imm;

@@ -155,6 +155,7 @@ main(int argc, char **argv)
         }
     }
     emit_code(list);
+    emit_symbols();
     free_symbols();
     free_tokens(TRUE);
 

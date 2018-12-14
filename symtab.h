@@ -44,6 +44,7 @@ void mark_all_used(enum use_t u);
 BOOL try_symbol_extern(const char *key);
 int try_symbol_attr(const char *key);
 
+void emit_symbols(void);
 void free_symbols(void);
 
 char *add_string(const char *arg);

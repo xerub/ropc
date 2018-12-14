@@ -43,7 +43,7 @@ static struct imm_node *R_immediate_exp(void);
 static int
 R_attribute(int allow)
 {
-    int attr;
+    int attr = 0;
     ENTER();
     if (!IS(T_ID)) {
         expect("attribute");
@@ -55,10 +55,11 @@ R_attribute(int allow)
     } else if (!strcmp(token.sym, "stack")) {
         attr = ATTRIB_STACK;
     } else {
-        attr = ATTRIB_UNKNOWN;
+        expect("attribute");
     }
     if (!(allow & attr)) {
         cry("ignoring attribute '%s'\n", token.sym);
+        attr = ATTRIB_UNKNOWN;
     }
     next_token(); /* skip attribute */
     LEAVE();
@@ -132,13 +133,13 @@ R_immediate_exp(void)
         if (!IS(T_ID)) {
             expect("identifier");
         }
-        n->value = create_address_str(token.sym);
+        n->value = create_address_str(token.sym, 0);
         next_token(); /* skip ID */
         LEAVE();
         return n;
     }
     if (IS(T_STRING)) {
-        n->value = create_address_str(add_string(token.sym));
+        n->value = create_address_str(add_string(token.sym), 0);
         next_token(); /* skip STRING */
         LEAVE();
         return n;
@@ -156,7 +157,7 @@ R_immediate_exp(void)
             free(p);
             p = next;
         }
-        n->value = create_address_str(add_vector(args, i));
+        n->value = create_address_str(add_vector(args, i), 0);
         if (!IS(T_CLOSECURLY)) {
             expect("'}'");
         }
@@ -303,7 +304,7 @@ R_additive_exp(struct the_node *the_node)
         if (optimize_add && p->type == NODE_IMM && q->type == NODE_IMM && !(IS_ADDRESS(AS_IMM(p)->value) && IS_ADDRESS(AS_IMM(q)->value))) {
             char *v1 = AS_IMM(p)->value;
             char *v2 = AS_IMM(q)->value;
-            AS_IMM(p)->value = create_sum_str(v1, v2);
+            AS_IMM(p)->value = create_op_str(v1, v2, '+');
             free(v1);
             free(v2);
             free(q);

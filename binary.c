@@ -152,7 +152,7 @@ parse_macho_ranges(const unsigned char *p, uint64_t address, struct range *range
         if (c == LC_SEGMENT_64) {
             const struct segment_command_64 *seg = (struct segment_command_64 *)q;
             if (seg->initprot & 4) {
-                ranges = add_range(ranges, address + seg->fileoff, seg->vmaddr, seg->filesize);
+                ranges = add_range(ranges, address /*+ seg->fileoff*/, seg->vmaddr, seg->filesize);
             }
         }
         q = q + cmd->cmdsize;

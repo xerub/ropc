@@ -95,6 +95,7 @@ emit_code(struct the_node *list)
     struct the_node *n = reverse_list(list);
     link_graph(n);
     mark_cycles(n);
+    emit_initialize();
     while (n) {
         struct label_node *l;
         struct the_node *p = n->next;
