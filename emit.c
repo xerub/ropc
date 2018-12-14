@@ -185,6 +185,21 @@ is_loadable(struct node *n, BOOL allow_deref)
 }
 
 
+static int
+get_regparm(struct call_node *n)
+{
+    int regparm;
+    if ((n->attr & ATTRIB_REGPARM) && n->regparm >= 0) {
+        return n->regparm;
+    }
+    regparm = try_symbol_regparm(n->func);
+    if (regparm >= 0) {
+        return regparm;
+    }
+    return arch_regparm;
+}
+
+
 static void
 maybe_symbol_forward(const char *arg)
 {
@@ -244,11 +259,12 @@ emit_nodes(struct node *n, const char *assignto, BOOL force, BOOL inloop)
             char *args[MAX_FUNC_ARGS];
             char *func;
             int i;
+            int regparm = get_regparm(p);
             BOOL retval = (n->next != NULL) || force || assignto;
             BOOL direct = FALSE;
             memset(args, 0, sizeof(args));
             for (i = 0, parm = p->parm; parm; parm = parm->next, i++) {
-                BOOL r0 = (i == 0 && arch_regparm);
+                BOOL r0 = (i == 0 && regparm > 0);
                 assert(i < MAX_FUNC_ARGS);
                 if (parm->type == NODE_IMM) {
                     args[i] = xstrdup(AS_IMM(parm)->value);
@@ -302,9 +318,9 @@ emit_nodes(struct node *n, const char *assignto, BOOL force, BOOL inloop)
                 }
             }
             if (direct) {
-                emit_call(func, NULL, 0, deref0, inloop, retval, p->attr);
+                emit_call(func, NULL, 0, deref0, inloop, retval, p->attr, regparm);
             } else {
-                emit_call(func, args, i, deref0, inloop, retval, p->attr);
+                emit_call(func, args, i, deref0, inloop, retval, p->attr, regparm);
             }
             free(func);
             while (--i >= 0) {

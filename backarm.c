@@ -727,13 +727,13 @@ emit_add(const char *value, const char *addend, int deref0, BOOL swap)
 
 
 void
-emit_call(const char *func, char **args, int nargs, int deref0, BOOL inloop, BOOL retval, int attr)
+emit_call(const char *func, char **args, int nargs, int deref0, BOOL inloop, BOOL retval, int attr, int regparm)
 {
     char *tmp = NULL;
     enum R_OP op = BLX_R4;
     int rargs = nargs;
-    if (rargs > arch_regparm) {
-        rargs = arch_regparm;
+    if (rargs > regparm) {
+        rargs = regparm;
     }
     if (rargs) {
         assert(rargs <= 4);
@@ -775,7 +775,7 @@ emit_call(const char *func, char **args, int nargs, int deref0, BOOL inloop, BOO
         if (retval) {
             sav = emit_save();
         }
-        add_extern(gdg, optab[op].addr, FALSE);
+        add_extern(gdg, optab[op].addr, 0, -1);
         make_symbol_used(gdg);
         emit_load_direct(gdg, FALSE);
         emit_store_direct(tmp);
@@ -893,11 +893,11 @@ emit_label(const char *label, BOOL used)
 
 
 void
-emit_extern(const char *import, int attr)
+emit_extern(const char *import, int attr, int regparm)
 {
     /* should not emit anything, but add symbol as extern */
     printf(";;; extern %s\n", import);
-    add_extern(import, solve_import(import), attr);
+    add_extern(import, solve_import(import), attr, regparm);
 }
 
 

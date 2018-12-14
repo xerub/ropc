@@ -23,7 +23,7 @@ struct call_node {
     enum node_type type;
     char *func;
     struct node *parm;
-    int attr;
+    int attr, regparm;
 };
 
 struct lval_node {

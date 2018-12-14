@@ -56,4 +56,5 @@ attribute_list		: attribute
 			| attribute ',' attribute_list
 			;
 attribute		: "noreturn" | "stdcall" | "stack"
+			| "regparm" = NUMBER
 			;

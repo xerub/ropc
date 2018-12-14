@@ -12,6 +12,7 @@
 #define ATTRIB_NORETURN (1<<2)
 #define ATTRIB_STDCALL  (1<<3)
 #define ATTRIB_STACK    (1<<4)
+#define ATTRIB_REGPARM  (1<<5)
 #define ATTRIB_UNKNOWN  (1<<31)
 
 enum use_t {
@@ -25,6 +26,7 @@ struct SYM {
     struct SYM *next;
     int type;			/* see SYMBOL_* */
     int attr;			/* see ATTRIB_* */
+    int regparm;
     char *key;
     char *val;
     enum use_t used;
@@ -43,13 +45,14 @@ void mark_all_used(enum use_t u);
 
 BOOL try_symbol_extern(const char *key);
 int try_symbol_attr(const char *key);
+int try_symbol_regparm(const char *key);
 
 void emit_symbols(void);
 void free_symbols(void);
 
 char *add_string(const char *arg);
 char *add_vector(const char **args, int narg);
-void add_extern(const char *import, unsigned long long addr, int attr);
+void add_extern(const char *import, unsigned long long addr, int attr, int regparm);
 void add_label(const char *label, int idx);
 
 const char *get_label_with_label(const char *target);

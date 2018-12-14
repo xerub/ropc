@@ -82,12 +82,12 @@ emit_add(const char *value, const char *addend, int deref0, BOOL swap)
 
 
 void
-emit_call(const char *func, char **args, int nargs, int deref0, BOOL inloop, BOOL retval, int attr)
+emit_call(const char *func, char **args, int nargs, int deref0, BOOL inloop, BOOL retval, int attr, int regparm)
 {
     char *tmp = NULL;
     int rargs = nargs;
-    if (rargs > arch_regparm) {
-        rargs = arch_regparm;
+    if (rargs > regparm) {
+        rargs = regparm;
     }
     if (rargs) {
         assert(rargs <= 4);
@@ -115,7 +115,7 @@ emit_call(const char *func, char **args, int nargs, int deref0, BOOL inloop, BOO
         assert(nargs - rargs <= 1);
         printf("### %s\n", func);
         for (; rargs < nargs; rargs++) {
-            printf("### a%d = %s\n", rargs - arch_regparm, args[rargs]);
+            printf("### a%d = %s\n", rargs - regparm, args[rargs]);
         }
         return;
     }
@@ -135,7 +135,7 @@ emit_call(const char *func, char **args, int nargs, int deref0, BOOL inloop, BOO
         printf("### call r4\n");
     }
     for (; rargs < nargs; rargs++) {
-        printf("### a%d = %s\n", rargs - arch_regparm, args[rargs]);
+        printf("### a%d = %s\n", rargs - regparm, args[rargs]);
     }
     if (tmp) {
         char *sav;
@@ -143,7 +143,7 @@ emit_call(const char *func, char **args, int nargs, int deref0, BOOL inloop, BOO
         if (retval) {
             sav = emit_save();
         }
-        add_extern(gdg, 0, 0);
+        add_extern(gdg, 0, 0, -1);
         make_symbol_used(gdg);
         emit_load_direct(gdg, FALSE);
         emit_store_direct(tmp);
@@ -219,11 +219,11 @@ emit_label(const char *label, BOOL used)
 
 
 void
-emit_extern(const char *import, int attr)
+emit_extern(const char *import, int attr, int regparm)
 {
     /* should not emit anything, but add symbol as extern */
     printf(";;; extern %s\n", import);
-    add_extern(import, solve_import(import), attr);
+    add_extern(import, solve_import(import), attr, regparm);
 }
 
 

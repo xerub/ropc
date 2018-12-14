@@ -20,6 +20,7 @@ new_symbol(const char *key, const void *val, int type)
         p->idx = 0;
         p->addr = 0;
         p->attr = 0;
+        p->regparm = -1;
         p->key = xstrdup(key);
         p->val = val ? xstrdup(val) : NULL;
         p->next = symtab;
@@ -127,6 +128,21 @@ try_symbol_attr(const char *key)
         return 0;
     }
     return p->attr;
+}
+
+
+int
+try_symbol_regparm(const char *key)
+{
+    const struct SYM *p = get_symbol(key);
+    if (!p) {
+        /* die("symbol '%s' not defined\n", key); */
+        return -1;
+    }
+    if (p->attr & ATTRIB_REGPARM) {
+        return p->regparm;
+    }
+    return -1;
 }
 
 
@@ -254,7 +270,7 @@ add_vector(const char **args, int narg)
 
 
 void
-add_extern(const char *import, unsigned long long addr, int attr)
+add_extern(const char *import, unsigned long long addr, int attr, int regparm)
 {
     const struct SYM *p = get_symbol(import);
     if (p) {
@@ -263,6 +279,7 @@ add_extern(const char *import, unsigned long long addr, int attr)
     symtab = new_symbol(import, NULL, SYMBOL_EXTERN);
     symtab->addr = addr;
     symtab->attr = attr;
+    symtab->regparm = regparm;
 }
 
 

@@ -41,7 +41,7 @@ static struct imm_node *R_immediate_exp(void);
 
 
 static int
-R_attribute(int allow)
+R_attribute(int allow, int *regparm)
 {
     int attr = 0;
     ENTER();
@@ -54,6 +54,21 @@ R_attribute(int allow)
         attr = ATTRIB_STDCALL;
     } else if (!strcmp(token.sym, "stack")) {
         attr = ATTRIB_STACK;
+    } else if (!strcmp(token.sym, "regparm")) {
+        long n;
+        next_token(); /* skip 'regparm' */
+        if (!IS(T_ASSIGN)) {
+            expect("'='");
+        }
+        next_token(); /* skip '=' */
+        if (!IS(T_INT)) {
+            expect("integer");
+        }
+        n = strtol(token.sym, NULL, 10);
+        if (n >= 0 && n <= 8) {
+            *regparm = n;
+            attr = ATTRIB_REGPARM;
+        }
     } else {
         expect("attribute");
     }
@@ -68,14 +83,14 @@ R_attribute(int allow)
 
 
 static int
-R_attribute_list(int allow)
+R_attribute_list(int allow, int *regparm)
 {
     int attr;
     ENTER();
-    attr = R_attribute(allow);
+    attr = R_attribute(allow, regparm);
     while (IS(T_COMMA)) {
         next_token(); /* skip ',' */
-        attr |= R_attribute(allow);
+        attr |= R_attribute(allow, regparm);
     }
     LEAVE();
     return attr;
@@ -83,14 +98,14 @@ R_attribute_list(int allow)
 
 
 static int
-R_attribute_spec(int allow)
+R_attribute_spec(int allow, int *regparm)
 {
     int attr = 0;
     ENTER();
     if (IS(T_OPENSQUARE) && peek_token() == T_OPENSQUARE) {
         next_token(); /* skip '[' */
         next_token(); /* skip '[' */
-        attr = R_attribute_list(allow);
+        attr = R_attribute_list(allow, regparm);
         if (!IS(T_CLOSESQUARE)) {
             expect("']'");
         }
@@ -254,9 +269,9 @@ static struct node *
 R_rvalue_exp(struct the_node *the_node)
 {
     struct node *n;
-    int attr;
+    int attr, regparm = -1;
     ENTER();
-    attr = R_attribute_spec(ATTRIB_NORETURN | ATTRIB_STDCALL | ATTRIB_STACK);
+    attr = R_attribute_spec(ATTRIB_NORETURN | ATTRIB_STDCALL | ATTRIB_STACK | ATTRIB_REGPARM, &regparm);
     if (attr) {
         if (IS(T_ID) && peek_token() == T_OPENBRACE) {
             goto funcall;
@@ -270,6 +285,7 @@ R_rvalue_exp(struct the_node *the_node)
         f->func = xstrdup(token.sym);
         f->parm = NULL;
         f->attr = attr;
+        f->regparm = regparm;
         next_token(); /* skip ID */
         next_token(); /* skip '(' */
         if (!IS(T_CLOSEBRACE)) {
@@ -441,15 +457,15 @@ R_external_decl(struct the_node *the_node)
     ENTER();
     if (IS(T_K_EXTERN)) {
         const char *import;
-        int attr;
+        int attr, regparm = -1;
         next_token(); /* skip 'extern' */
         if (!IS(T_ID)) {
             expect("identifier");
         }
         import = token.sym;
         next_token(); /* skip ID */
-        attr = R_attribute_spec(ATTRIB_NORETURN | ATTRIB_STDCALL);
-        emit_extern(import, attr);
+        attr = R_attribute_spec(ATTRIB_NORETURN | ATTRIB_STDCALL | ATTRIB_REGPARM, &regparm);
+        emit_extern(import, attr, regparm);
     } else {
         R_labeled_stat(the_node);
     }
