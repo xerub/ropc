@@ -496,8 +496,10 @@ play_data(const char *arg, int i, int ch)
             printf("        dg    0x%-28llX; -> PC: %s\n", optab[j].addr, optab[j].text);
             return;
         }
-        if (IS_ADDRESS(arg)) {
-            printf("        du    %-30s; -> %c%d\n", arg + 1, ch, i);
+        if (is_address(arg)) {
+            char *na = curate_address(arg);
+            printf("        du    %-30s; -> %c%d\n", na, ch, i);
+            free(na);
             return;
         }
         p = get_symbol(arg);
@@ -508,8 +510,10 @@ play_data(const char *arg, int i, int ch)
                 printf("        du    %-30s; -> %c%d\n", p->key, ch, i);
             } else {
                 assert(p->type == SYMBOL_NORMAL);
-                if (p->val && IS_ADDRESS(p->val)) {
-                    printf("%-7s du    %-30s; -> %c%d\n", arg, p->val + 1, ch, i);
+                if (p->val && is_address(p->val)) {
+                    char *na = curate_address(p->val);
+                    printf("%-7s du    %-30s; -> %c%d\n", arg, na, ch, i);
+                    free(na);
                 } else if (p->val && try_symbol_extern(p->val)) {
                     printf("%-7s dg    0x%-28llX; -> %s\n", arg, p->addr, p->val);
                 } else {

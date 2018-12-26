@@ -317,7 +317,7 @@ R_additive_exp(struct the_node *the_node)
     for (p = n->list; IS(T_ADD); ) {
         next_token(); /* skip '+' */
         q = R_rvalue_exp(the_node);
-        if (optimize_add && p->type == NODE_IMM && q->type == NODE_IMM && !(IS_ADDRESS(AS_IMM(p)->value) && IS_ADDRESS(AS_IMM(q)->value))) {
+        if (optimize_add && p->type == NODE_IMM && q->type == NODE_IMM && !(is_address(AS_IMM(p)->value) && is_address(AS_IMM(q)->value))) {
             char *v1 = AS_IMM(p)->value;
             char *v2 = AS_IMM(q)->value;
             AS_IMM(p)->value = create_op_str(v1, v2, '+');

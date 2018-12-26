@@ -155,8 +155,10 @@ emit_symbols(void)
             switch (p->type) {
                 case SYMBOL_NORMAL:
                     if (p->val) {
-                        if (IS_ADDRESS(p->val)) {
-                            printf("%-7s du    %s\n", p->key, p->val + 1);
+                        if (is_address(p->val)) {
+                            char *na = curate_address(p->val);
+                            printf("%-7s du    %s\n", p->key, na);
+                            free(na);
                         } else if (try_symbol_extern(p->val)) {
                             printf("%-7s dg    0x%-28llX; -> %s\n", p->key, get_symbol(p->val)->addr, p->val);
                         } else {
@@ -180,8 +182,10 @@ emit_symbols(void)
                     printf("%s:\n", p->key);
                     for (i = 0; i < p->type; i++) {
                         char *val = ((char **)p->val)[i];
-                        if (IS_ADDRESS(val)) {
-                            printf("        du    %s\n", val + 1);
+                        if (is_address(val)) {
+                            char *na = curate_address(val);
+                            printf("        du    %s\n", na);
+                            free(na);
                         } else if (try_symbol_extern(val)) {
                             printf("        dg    0x%-28llX; -> %s\n", get_symbol(val)->addr, val);
                         } else {

@@ -118,22 +118,57 @@ create_op_str(const char *str1, const char *str2, int op)
     int len1;
     int len2;
     char *p;
-    if (IS_ADDRESS(str2)) {
+    if (is_address(str2)) {
         const char *tmp;
-        assert(!IS_ADDRESS(str1));
+        assert(!is_address(str1));
         tmp = str1;
         str1 = str2;
         str2 = tmp;
     }
     len1 = strlen(str1);
-    len2 = strlen(str2) + 1;
-    p = malloc(len1 + 3 + len2);
+    len2 = strlen(str2);
+    p = malloc(1 + len1 + 3 + len2 + 1 + 1);
     if (p) {
-        memcpy(p, str1, len1);
-        p[len1 + 0] = ' ';
-        p[len1 + 1] = op;
-        p[len1 + 2] = ' ';
-        memcpy(p + len1 + 3, str2, len2);
+        p[0] = '(';
+        memcpy(p + 1, str1, len1);
+        p[++len1] = ' ';
+        p[++len1] = op;
+        p[++len1] = ' ';
+        memcpy(p + 1 + len1, str2, len2);
+        p[1 + len1 + len2] = ')';
+        p[1 + len1 + len2 + 1] = '\0';
+    }
+    assert(p);
+    return p;
+}
+
+
+const char *
+is_address(const char *str)
+{
+    while (*str == '(') { // )
+        str++;
+    }
+    if (*str != '&') {
+        return NULL;
+    }
+    assert(!strchr(str + 1, '&'));
+    return str;
+}
+
+
+char *
+curate_address(const char *str)
+{
+    char *p;
+    size_t len = strlen(str);
+    const char *at = is_address(str);
+    assert(at && !strchr(at + 1, '&'));
+    p = malloc(len);
+    if (p) {
+        size_t pos = at - str;
+        memcpy(p, str, pos);
+        strcpy(p + pos, at + 1);
     }
     assert(p);
     return p;
@@ -143,7 +178,8 @@ create_op_str(const char *str1, const char *str2, int op)
 char *
 copy_address_sym(const char *str)
 {
-    if (IS_ADDRESS(str)) {
+    str = is_address(str);
+    if (str) {
         int len;
         char *p;
         const char *s;

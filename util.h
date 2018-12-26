@@ -13,8 +13,6 @@ typedef int BOOL;
 #define FALSE false
 */
 
-#define IS_ADDRESS(arg) (*(arg) == '&')
-
 #ifndef __GNUC__
 int popcount(unsigned int v);
 #else
@@ -31,6 +29,8 @@ char *create_address_str(const char *str, int offset);
 char *create_number_str(BOOL negative, const char *str);
 char *create_op_str(const char *str1, const char *str2, int op);
 
+const char *is_address(const char *str);
+char *curate_address(const char *str);
 char *copy_address_sym(const char *str);
 
 unsigned int hash(const char *p);
