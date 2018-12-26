@@ -370,9 +370,9 @@ emit_nodes(struct node *n, const char *assignto, BOOL force, BOOL inloop)
                     }
                 } else if (term->type == NODE_LVAL && !deref0) {
                     tmp = create_address_str(AS_LVAL(term)->name, 0);
+                    swap = TRUE;
                     deref0 = 1;
                     if (AS_LVAL(term)->deref) {
-                        swap = TRUE;
                         deref0++;
                     }
                 } else {
@@ -383,6 +383,7 @@ emit_nodes(struct node *n, const char *assignto, BOOL force, BOOL inloop)
                 emit_add(prev_tmp, tmp, deref0, swap);
                 deref0 = 0;
                 if (term->next) {
+                    add_symbol_forward(sum, 0);
                     emit_store_indirect(sum);
                 }
                 free(prev_tmp);
