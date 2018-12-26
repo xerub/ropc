@@ -21,8 +21,12 @@ jump_stat		: "goto" ID
 assignment_exp		: additive_exp
 			| lvalue_exp '=' assignment_exp
 			;
-additive_exp		: rvalue_exp
-			| additive_exp '+' rvalue_exp
+additive_exp		: multiplicative_exp
+			| additive_exp '+' multiplicative_exp
+			| additive_exp '-' multiplicative_exp
+			;
+multiplicative_exp	: rvalue_exp
+			| multiplicative_exp '*' rvalue_exp
 			;
 rvalue_exp		: immediate_exp
 			| lvalue_exp
@@ -30,6 +34,7 @@ rvalue_exp		: immediate_exp
 			| ID '(' argument_exp_list ')'
 			| attribute_spec ID '(' ')'
 			| attribute_spec ID '(' argument_exp_list ')'
+			| '(' additive_exp ')'
 			;
 argument_exp_list	: additive_exp
 			| additive_exp ',' argument_exp_list

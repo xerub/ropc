@@ -19,6 +19,8 @@ int is_LOAD_R4R5(const unsigned char *buf, uint32_t sz, va_list ap, uint64_t add
 int is_LDR_R0_R0(const unsigned char *buf, uint32_t sz, va_list ap, uint64_t addr, void *user);
 int is_STR_R0_R4(const unsigned char *buf, uint32_t sz, va_list ap, uint64_t addr, void *user);
 int is_ADD_R0_R1(const unsigned char *buf, uint32_t sz, va_list ap, uint64_t addr, void *user);
+int is_SUB_R0_R1(const unsigned char *buf, uint32_t sz, va_list ap, uint64_t addr, void *user);
+int is_MUL_R0_R1(const unsigned char *buf, uint32_t sz, va_list ap, uint64_t addr, void *user);
 int is_BLX_R4(const unsigned char *buf, uint32_t sz, va_list ap, uint64_t addr, void *user);
 int is_BLX_R4_SP(const unsigned char *buf, uint32_t sz, va_list ap, uint64_t addr, void *user);
 int is_RET_0(const unsigned char *buf, uint32_t sz, va_list ap, uint64_t addr, void *user);

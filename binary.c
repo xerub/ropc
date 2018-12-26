@@ -511,6 +511,22 @@ is_ADD_R0_R1(const unsigned char *buf, uint32_t sz, va_list ap, uint64_t addr, v
 
 
 int
+is_SUB_R0_R1(const unsigned char *buf, uint32_t sz, va_list ap, uint64_t addr, void *user)
+{
+    // SUBS R0,R0,R1 / POP {R7,PC}
+    return (buf[0] == 0x40 && buf[1] == 0x1A && buf[2] == 0x80 && buf[3] == 0xbd);
+}
+
+
+int
+is_MUL_R0_R1(const unsigned char *buf, uint32_t sz, va_list ap, uint64_t addr, void *user)
+{
+    // MULS R0,R1 / POP {R7,PC}
+    return (buf[0] == 0x48 && buf[1] == 0x43 && buf[2] == 0x80 && buf[3] == 0xbd);
+}
+
+
+int
 is_BLX_R4(const unsigned char *buf, uint32_t sz, va_list ap, uint64_t addr, void *user)
 {
     // BLX R4 / POP {R4,R7,PC}

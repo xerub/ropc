@@ -40,6 +40,8 @@ enum R_OP {
     LDR_R0TO3,
     LDR_R0_R0,
     ADD_R0_R1,
+    SUB_R0_R1,
+    MUL_R0_R1,
     BLX_R4,
     BLX_R4_1,
     BLX_R4_2,
@@ -79,6 +81,8 @@ static struct R_OPDEF optab[] = {
     { LDR_R0TO3,    /**/ 0,           /**/ R0|R1|R2|R3,                /**/ 0,                    /**/ 0,   0, "POP {R0-R3,PC}",                                                     },
     { LDR_R0_R0,    /**/ R0,          /**/                   R7,       /**/                   R7, /**/ 0,   0, "LDR R0, [R0] / POP {R7,PC}",                                         },
     { ADD_R0_R1,    /**/ R0,          /**/                   R7,       /**/                   R7, /**/ 0,   0, "ADD R0, R1 / POP {R7,PC}",                                           },
+    { SUB_R0_R1,    /**/ R0,          /**/                   R7,       /**/                   R7, /**/ 0,   0, "SUBS R0, R0, R1 / POP {R7,PC}",                                      },
+    { MUL_R0_R1,    /**/ R0,          /**/                   R7,       /**/                   R7, /**/ 0,   0, "MULS R0, R1 / POP {R7,PC}",                                          },
     { BLX_R4,       /**/ R0|R1|R2|R3, /**/             R4|   R7,       /**/             R4|   R7, /**/ 0,   0, "BLX R4 / POP {R4,R7,PC}",                                            },
     { BLX_R4_1,     /**/ R0|R1|R2|R3, /**/             R4|   R7,       /**/             R4|   R7, /**/ 1,   0, "BLX R4 / ADD SP, #4 / POP {...PC}",                                  },
     { BLX_R4_2,     /**/ R0|R1|R2|R3, /**/             R4|   R7,       /**/             R4|   R7, /**/ 2,   0, "BLX R4 / ADD SP, #8 / POP {...PC}",                                  },
@@ -235,6 +239,12 @@ solve_op(enum R_OP op)
         case ADD_R0_R1:
             rv = parse_gadgets(ranges, binmap, NULL, is_ADD_R0_R1);
             break;
+        case SUB_R0_R1:
+            rv = parse_gadgets(ranges, binmap, NULL, is_SUB_R0_R1);
+            break;
+        case MUL_R0_R1:
+            rv = parse_gadgets(ranges, binmap, NULL, is_MUL_R0_R1);
+            break;
         case MOV_R1_R0: {
             uint64_t pp[3] = { 0, 0, 8 + 1 };
             rv = parse_gadgets(ranges, binmap, pp, solve_MOV_Rx_R0, 1);
@@ -361,6 +371,8 @@ make1(enum R_OP op, ...)
             strip[idx++] = (BRICK)op;
             break;
         case ADD_R0_R1:
+        case SUB_R0_R1:
+        case MUL_R0_R1:
         case MOV_R1_R0:
         case MOV_R0_R1:
             strip[idx++] = (BRICK)op;
@@ -617,6 +629,8 @@ emit_finalize(void)
             case LDR_R0TO3:
             case LDR_R0_R0:
             case ADD_R0_R1:
+            case SUB_R0_R1:
+            case MUL_R0_R1:
             case MOV_R1_R0:
             case MOV_R0_R1:
             case STR_R0_R4:
@@ -727,6 +741,33 @@ emit_add(const char *value, const char *addend, int deref0, BOOL swap)
         make1(LDR_R0_R0);
     }
     make1(ADD_R0_R1);
+}
+
+
+void
+emit_sub(const char *value, const char *addend, int deref0)
+{
+    make1(LDR_R0R1, value, addend);
+    while (deref0--) {
+        make1(LDR_R0_R0);
+    }
+    make1(SUB_R0_R1);
+}
+
+
+void
+emit_mul(const char *value, const char *multiplier, int deref0, BOOL swap)
+{
+    if (swap) {
+        const char *tmp = value;
+        value = multiplier;
+        multiplier = tmp;
+    }
+    make1(LDR_R0R1, value, multiplier);
+    while (deref0--) {
+        make1(LDR_R0_R0);
+    }
+    make1(MUL_R0_R1);
 }
 
 

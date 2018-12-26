@@ -49,6 +49,16 @@ alloc_add_node(void)
 }
 
 
+struct mul_node *
+alloc_mul_node(void)
+{
+    struct mul_node *n = xmalloc(sizeof(struct mul_node));
+    n->next = NULL;
+    n->type = NODE_MUL;
+    return n;
+}
+
+
 void *
 reverse_list(void *n)
 {
@@ -90,6 +100,13 @@ free_nodes(struct node *n)
             }
             case NODE_ADD: {
                 struct add_node *p = (struct add_node *)n;
+                if (p->list) {
+                    free_nodes(p->list);
+                }
+                break;
+            }
+            case NODE_MUL: {
+                struct mul_node *p = (struct mul_node *)n;
                 if (p->list) {
                     free_nodes(p->list);
                 }
@@ -137,6 +154,15 @@ walk_nodes(struct node *n, int level)
                 struct add_node *p = (struct add_node *)n;
                 if (p->list) {
                     show(";== +(\n");
+                    walk_nodes(p->list, level + 1);
+                    show(")\n");
+                }
+                break;
+            }
+            case NODE_MUL: {
+                struct mul_node *p = (struct mul_node *)n;
+                if (p->list) {
+                    show(";== .(\n");
                     walk_nodes(p->list, level + 1);
                     show(")\n");
                 }
@@ -328,6 +354,7 @@ emit_nodes(struct node *n, const char *assignto, BOOL force, BOOL inloop)
             }
             break;
         }
+        case NODE_MUL:
         case NODE_ADD: {
             struct node *term;
             struct node *prev;
@@ -361,14 +388,14 @@ emit_nodes(struct node *n, const char *assignto, BOOL force, BOOL inloop)
                 if (term->type == NODE_IMM) {
                     tmp = xstrdup(AS_IMM(term)->value);
                     maybe_symbol_forward(tmp);
-                } else if (term->type == NODE_LVAL && is_loadable(term, !deref0)) {
+                } else if (term->type == NODE_LVAL && is_loadable(term, !deref0) && !(term->inverse && AS_LVAL(term)->deref)) {
                     tmp = xstrdup(AS_LVAL(term)->name);
                     make_symbol_used(tmp);
                     if (AS_LVAL(term)->deref) {
                         swap = TRUE;
                         deref0 = 1;
                     }
-                } else if (term->type == NODE_LVAL && !deref0) {
+                } else if (term->type == NODE_LVAL && !deref0 && !term->inverse) {
                     tmp = create_address_str(AS_LVAL(term)->name, 0);
                     swap = TRUE;
                     deref0 = 1;
@@ -380,7 +407,15 @@ emit_nodes(struct node *n, const char *assignto, BOOL force, BOOL inloop)
                     emit_nodes(term, tmp, FALSE, inloop);
                     make_symbol_used(tmp);
                 }
-                emit_add(prev_tmp, tmp, deref0, swap);
+                if (n->type == NODE_MUL) {
+                    emit_mul(prev_tmp, tmp, deref0, swap);
+                } else {
+                    if (term->inverse) {
+                        emit_sub(prev_tmp, tmp, deref0);
+                    } else {
+                        emit_add(prev_tmp, tmp, deref0, swap);
+                    }
+                }
                 deref0 = 0;
                 if (term->next) {
                     add_symbol_forward(sum, 0);

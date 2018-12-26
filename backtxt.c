@@ -82,6 +82,35 @@ emit_add(const char *value, const char *addend, int deref0, BOOL swap)
 
 
 void
+emit_mul(const char *value, const char *multiplier, int deref0, BOOL swap)
+{
+    if (swap) {
+        const char *tmp = value;
+        value = multiplier;
+        multiplier = tmp;
+    }
+    printf("### r0 = %s\n", value);
+    printf("### r1 = %s\n", multiplier);
+    while (deref0--) {
+        printf("### r0 = [r0]\n");
+    }
+    printf("### r0 *= r1\n");
+}
+
+
+void
+emit_sub(const char *value, const char *addend, int deref0)
+{
+    printf("### r0 = %s\n", value);
+    printf("### r1 = %s\n", addend);
+    while (deref0--) {
+        printf("### r0 = [r0]\n");
+    }
+    printf("### r0 -= r1\n");
+}
+
+
+void
 emit_call(const char *func, char **args, int nargs, int deref0, BOOL inloop, BOOL retval, int attr, int regparm)
 {
     char *tmp = NULL;

@@ -298,11 +298,52 @@ R_rvalue_exp(struct the_node *the_node)
         n = (struct node *)f;
     } else if (IS(T_INT) || IS(T_STRING) || IS(T_AND) || IS(T_ADD) || IS(T_SUB) || IS(T_OPENCURLY)) {
         n = (struct node *)R_immediate_exp();
+    } else if (IS(T_OPENBRACE)) {
+        next_token(); /* skip '(' */
+        n = (struct node *)R_additive_exp(the_node);
+        if (!IS(T_CLOSEBRACE)) {
+            expect("')'");
+        }
+        next_token(); /* skip ')' */
     } else {
         n = (struct node *)R_lvalue_exp();
     }
     LEAVE();
     return n;
+}
+
+
+static struct node *
+R_multiplicative_exp(struct the_node *the_node)
+{
+    struct mul_node *n;
+    struct node *p, *q;
+    ENTER();
+    n = alloc_mul_node();
+    n->list = R_rvalue_exp(the_node);
+    for (p = n->list; IS(T_MUL); ) {
+        next_token(); /* skip '*' */
+        q = R_rvalue_exp(the_node);
+        if (optimize_add && p->type == NODE_IMM && q->type == NODE_IMM && !is_address(AS_IMM(p)->value) && !is_address(AS_IMM(q)->value)) {
+            char *v1 = AS_IMM(p)->value;
+            char *v2 = AS_IMM(q)->value;
+            AS_IMM(p)->value = create_op_str(v1, v2, '*');
+            free(v1);
+            free(v2);
+            free(q);
+            continue;
+        }
+        p->next = q;
+        p = p->next;
+    }
+    if (n->list->next == NULL) {
+        /* reduce multiplicative to simple factor if possible */
+        p = (struct node *)n;
+        n = (struct mul_node *)n->list;
+        free(p);
+    }
+    LEAVE();
+    return (struct node *)n;
 }
 
 
@@ -313,14 +354,16 @@ R_additive_exp(struct the_node *the_node)
     struct node *p, *q;
     ENTER();
     n = alloc_add_node();
-    n->list = R_rvalue_exp(the_node);
-    for (p = n->list; IS(T_ADD); ) {
+    n->list = R_multiplicative_exp(the_node);
+    for (p = n->list; IS(T_ADD) || IS(T_SUB); ) {
+        int negative = IS(T_SUB);
         next_token(); /* skip '+' */
-        q = R_rvalue_exp(the_node);
+        q = R_multiplicative_exp(the_node);
+        q->inverse = negative;
         if (optimize_add && p->type == NODE_IMM && q->type == NODE_IMM && !(is_address(AS_IMM(p)->value) && is_address(AS_IMM(q)->value))) {
             char *v1 = AS_IMM(p)->value;
             char *v2 = AS_IMM(q)->value;
-            AS_IMM(p)->value = create_op_str(v1, v2, '+');
+            AS_IMM(p)->value = create_op_str(v1, v2, negative ? '-' : '+');
             free(v1);
             free(v2);
             free(q);
