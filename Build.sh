@@ -1,6 +1,6 @@
 #!/bin/sh
 
-ln -s backarm.c backend.c
+ln -s backarm64.c backend.c
 gcc -o ropc -Wall -W -pedantic -O2 -I. -g \
 	lexer.c \
 	parser.c \
