@@ -214,6 +214,22 @@ solve_op(enum R_OP op)
             break;
         case SEL_1:
             rv = parse_gadgets(ranges, binmap, NULL, is_string, "+ 73 12 9F 9A E0 03 13 AA FD 7B 41 A9 F4 4F C2 A8 C0 03 5F D6");
+            if (!rv) {
+                rv = parse_gadgets(ranges, binmap, NULL, is_string, "+ 73 12 9F 9A E0 03 13 AA FD 7B 42 A9 F4 4F 41 A9 F6 57 C3 A8 C0 03 5F D6");
+                if (rv) {
+                    optab[SEL_1].output |= X21|X22;
+                    optab[SEL_1].auxout |= X21|X22;
+                    optab[SEL_1].text = "csel x19, x19, xzr, ne / mov x0, x19 / ldp x29, x30, [sp, #0x20] / ldp x20, x19, [sp, #0x10] / ldp x22, x21, [sp], #0x30 / ret";
+                    break;
+                }
+                rv = parse_gadgets(ranges, binmap, NULL, is_string, "+ 73 12 9F 9A E0 03 13 AA FD 7B 42 A9 F4 4F 41 A9 FF C3 00 91 C0 03 5F D6");
+                if (rv) {
+                    optab[SEL_1].output |= X21|X22;
+                    optab[SEL_1].auxout |= X21|X22;
+                    optab[SEL_1].text = "csel x19, x19, xzr, ne / mov x0, x19 / ldp x29, x30, [sp, #0x20] / ldp x20, x19, [sp, #0x10] / add sp, sp, #0x30 / ret";
+                    break;
+                }
+            }
             break;
         case SEL_2:
             rv = parse_gadgets(ranges, binmap, NULL, is_string, "+ 73 02 80 9A E0 03 13 AA FD 7B 41 A9 F4 4F C2 A8 C0 03 5F D6");
