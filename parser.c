@@ -501,6 +501,7 @@ R_external_decl(struct the_node *the_node)
     if (IS(T_K_EXTERN)) {
         const char *import;
         int attr, regparm = -1;
+        unsigned long long val = -1;
         next_token(); /* skip 'extern' */
         if (!IS(T_ID)) {
             expect("identifier");
@@ -508,7 +509,15 @@ R_external_decl(struct the_node *the_node)
         import = token.sym;
         next_token(); /* skip ID */
         attr = R_attribute_spec(ATTRIB_NORETURN | ATTRIB_STDCALL | ATTRIB_REGPARM, &regparm);
-        emit_extern(import, attr, regparm);
+        if (IS(T_ASSIGN)) {
+            next_token(); /* skip '=' */
+            if (!IS(T_INT)) {
+                expect("integer");
+            }
+            val = strtoull(token.sym, NULL, 0);
+            next_token(); /* skip NUMBER */
+        }
+        emit_extern(import, val, attr, regparm);
     } else {
         R_labeled_stat(the_node);
     }

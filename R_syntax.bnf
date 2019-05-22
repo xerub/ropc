@@ -3,6 +3,8 @@ translation_unit	: external_decl
 			;
 external_decl		: "extern" ID
 			| "extern" ID attribute_spec
+			| "extern" ID '=' NUMBER
+			| "extern" ID attribute_spec '=' NUMBER
 			| labeled_stat
 			;
 labeled_stat		: ID ':'

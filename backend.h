@@ -19,7 +19,7 @@ void emit_restore(char *scratch);
 void emit_goto(const char *label);
 void emit_cond(const char *label, enum cond_t cond);
 void emit_label(const char *label, BOOL used);
-void emit_extern(const char *import, int attr, int regparm);
+void emit_extern(const char *import, unsigned long long val, int attr, int regparm);
 void emit_fast(const char *var, const char *val);
 
 const char *backend_name(void);

@@ -847,11 +847,11 @@ emit_label(const char *label, BOOL used)
 
 
 void
-emit_extern(const char *import, int attr, int regparm)
+emit_extern(const char *import, unsigned long long val, int attr, int regparm)
 {
     /* should not emit anything, but add symbol as extern */
     printf(";;; extern %s\n", import);
-    add_extern(import, solve_import(import), attr, regparm);
+    add_extern(import, (val != -1ULL) ? val : solve_import(import), attr, regparm);
 }
 
 
