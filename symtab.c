@@ -248,14 +248,25 @@ add_string(const char *arg)
 {
     char *tmp;
     struct SYM *p;
+    char *esc = NULL;
+    if (nasm_esc_str) {
+        size_t len = strlen(arg);
+        assert(len);
+        esc = xmalloc(len + 1);
+        memmove(esc, arg, len + 1);
+        esc[0] = esc[len - 1] = '`';
+        arg = esc;
+    }
     for (p = symtab; p; p = p->next) {
         if (p->type == SYMBOL_STRING && !strcmp(p->val, arg)) {
+            free(esc);
             return p->key;
         }
     }
     tmp = new_name("str");
     symtab = new_symbol(tmp, arg, SYMBOL_STRING);
     free(tmp);
+    free(esc);
     return symtab->key;
 }
 

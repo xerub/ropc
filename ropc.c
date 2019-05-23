@@ -39,6 +39,7 @@ int optimize_add = 0;
 int optimize_reg = 0;
 int optimize_jmp = 0;
 int show_reg_set = 0;
+int nasm_esc_str = 0;
 int inloop_stack = 256;
 
 static const char *binary = NULL;
@@ -53,7 +54,7 @@ check_args(int argc, char **argv)
     for (i = 1; i < argc && *(p = argv[i]) == '-'; i++) {
         const char *q = p + 2;
         if (!strcmp(p, "-h")) {
-            printf("usage: %s [-O2] [-O{i|a|r|j}] [-mregparm=N] [-mrestack=S] [-g] [-c cache] file\n", argv[0]);
+            printf("usage: %s [-O2] [-O{i|a|r|j}] [-mregparm=N] [-mrestack=S] [-g] [-n] [-c cache] file\n", argv[0]);
             exit(0);
         }
         if (!strcmp(p, "-V")) {
@@ -82,6 +83,9 @@ check_args(int argc, char **argv)
                 break;
             case 'g':
                 show_reg_set = 1;
+                break;
+            case 'n':
+                nasm_esc_str = 1;
                 break;
             case 'c':
                 if (++i >= argc) {
