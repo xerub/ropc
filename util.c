@@ -9,6 +9,9 @@
 #include "lexer.h"
 
 
+#define isalnu_(c) (isalnum(c) || ((c) == '_'))
+
+
 #ifndef __GNUC__
 int
 popcount(unsigned int v)
@@ -118,7 +121,7 @@ create_op_str(const char *str1, const char *str2, int op)
     int len1;
     int len2;
     char *p;
-    if (is_address(str2)) {
+    if (is_address(str2) && (op == '+' || op == '*')) {
         const char *tmp;
         assert(!is_address(str1));
         tmp = str1;
@@ -146,10 +149,8 @@ create_op_str(const char *str1, const char *str2, int op)
 const char *
 is_address(const char *str)
 {
-    while (*str == '(') { // )
-        str++;
-    }
-    if (*str != '&') {
+    str = strchr(str, '&');
+    if (!str) {
         return NULL;
     }
     assert(!strchr(str + 1, '&'));
@@ -183,7 +184,7 @@ copy_address_sym(const char *str)
         int len;
         char *p;
         const char *s;
-        for (s = str + 1; *s && *s != ' '; s++) {
+        for (s = str + 1; isalnu_(*s); s++) {
         }
         len = s - str;
         p = malloc(len);

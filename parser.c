@@ -360,9 +360,17 @@ R_additive_exp(struct the_node *the_node)
         next_token(); /* skip '+' */
         q = R_multiplicative_exp(the_node);
         q->inverse = negative;
-        if (optimize_add && p->type == NODE_IMM && q->type == NODE_IMM && !(is_address(AS_IMM(p)->value) && is_address(AS_IMM(q)->value))) {
+        if (optimize_add && p->type == NODE_IMM && q->type == NODE_IMM && ((!is_address(AS_IMM(p)->value) ^ negative) | !is_address(AS_IMM(q)->value))) {
             char *v1 = AS_IMM(p)->value;
             char *v2 = AS_IMM(q)->value;
+            if (is_address(v1) && is_address(v2)) {
+                char *c1 = curate_address(v1);
+                char *c2 = curate_address(v2);
+                free(v1);
+                free(v2);
+                v1 = c1;
+                v2 = c2;
+            }
             AS_IMM(p)->value = create_op_str(v1, v2, negative ? '-' : '+');
             free(v1);
             free(v2);
