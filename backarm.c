@@ -104,7 +104,7 @@ static struct R_OPDEF optab[] = {
 
 
 static int idx = 0;
-static BRICK strip[1024];
+static BRICK strip[10240];
 
 static unsigned dirty = 0xFFFF;
 static int pointer[16] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
@@ -343,7 +343,7 @@ make1(enum R_OP op, ...)
     unsigned spill = r->spill;
     va_list ap;
     va_start(ap, op);
-    assert(idx < 1000);
+    assert(idx < 10000);
     solve_op(op);
     switch (op) {
         case LDR_R0:
