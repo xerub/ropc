@@ -27,7 +27,7 @@ struct call_node {
     int inverse;
     char *func;
     struct node *parm;
-    int attr, regparm;
+    int attr, regparm, restack;
 };
 
 struct lval_node {

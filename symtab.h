@@ -27,6 +27,7 @@ struct SYM {
     int type;			/* see SYMBOL_* */
     int attr;			/* see ATTRIB_* */
     int regparm;
+    int restack;
     char *key;
     char *val;
     enum use_t used;

@@ -344,9 +344,9 @@ emit_nodes(struct node *n, const char *assignto, BOOL force, BOOL inloop)
                 }
             }
             if (direct) {
-                emit_call(func, NULL, 0, deref0, inloop, retval, p->attr, regparm);
+                emit_call(func, NULL, 0, deref0, inloop, retval, p->attr, regparm, p->restack);
             } else {
-                emit_call(func, args, i, deref0, inloop, retval, p->attr, regparm);
+                emit_call(func, args, i, deref0, inloop, retval, p->attr, regparm, p->restack);
             }
             free(func);
             while (--i >= 0) {

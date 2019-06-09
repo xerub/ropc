@@ -64,4 +64,5 @@ attribute_list		: attribute
 			;
 attribute		: "noreturn" | "stdcall" | "stack"
 			| "regparm" = NUMBER
+			| "stack" = NUMBER
 			;

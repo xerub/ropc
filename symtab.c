@@ -21,6 +21,7 @@ new_symbol(const char *key, const void *val, int type)
         p->addr = 0;
         p->attr = 0;
         p->regparm = -1;
+        p->restack = -1;
         p->key = xstrdup(key);
         p->val = val ? xstrdup(val) : NULL;
         p->next = symtab;
@@ -297,6 +298,7 @@ add_extern(const char *import, unsigned long long addr, int attr, int regparm)
     symtab->addr = addr;
     symtab->attr = attr;
     symtab->regparm = regparm;
+    symtab->restack = -1;
 }
 
 

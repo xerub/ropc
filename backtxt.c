@@ -111,7 +111,7 @@ emit_sub(const char *value, const char *addend, int deref0)
 
 
 void
-emit_call(const char *func, char **args, int nargs, int deref0, BOOL inloop, BOOL retval, int attr, int regparm)
+emit_call(const char *func, char **args, int nargs, int deref0, BOOL inloop, BOOL retval, int attr, int regparm, int restack)
 {
     char *tmp = NULL;
     int rargs = nargs;
@@ -150,7 +150,7 @@ emit_call(const char *func, char **args, int nargs, int deref0, BOOL inloop, BOO
     }
     printf("### r4 = %s\n", func);
     if ((attr & ATTRIB_STACK) || inloop) {
-        printf("### add sp\n");
+        printf("### add sp, 0x%x\n", (restack > 0) ? restack : inloop_stack);
     }
     if (inloop) {
         tmp = new_name("res");

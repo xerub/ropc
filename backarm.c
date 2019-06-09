@@ -397,6 +397,7 @@ make1(enum R_OP op, ...)
             break;
         case ADD_SP:
             strip[idx++] = (BRICK)op;
+            strip[idx++] = (BRICK)(long)va_arg(ap, int);
             break;
         case BX_IMM:
         case BX_IMM_1: {
@@ -577,6 +578,10 @@ emit_finalize(void)
             printf("        dg    0x%-28llX; -> PC: %s\n", r->addr, r->text);
         }
         if (op == ADD_SP) {
+            long restack = (long)*p++;
+            if (restack > 0 && restack > r->incsp) {
+                cry("this backend does not support custom stack %ld\n", restack);
+            }
             printf("        times 0x%x dd 0\n", r->incsp);
         }
         if (op == LDMIA_R0 || op == LDMIA_R0_C) {
@@ -772,7 +777,7 @@ emit_mul(const char *value, const char *multiplier, int deref0, BOOL swap)
 
 
 void
-emit_call(const char *func, char **args, int nargs, int deref0, BOOL inloop, BOOL retval, int attr, int regparm)
+emit_call(const char *func, char **args, int nargs, int deref0, BOOL inloop, BOOL retval, int attr, int regparm, int restack)
 {
     char *tmp = NULL;
     enum R_OP op = BLX_R4;
@@ -802,7 +807,7 @@ emit_call(const char *func, char **args, int nargs, int deref0, BOOL inloop, BOO
     }
     make1(LDR_R4, func);
     if ((attr & ATTRIB_STACK) || inloop) {
-        make1(ADD_SP);
+        make1(ADD_SP, restack);
     }
     if (inloop) {
         tmp = new_name("res");

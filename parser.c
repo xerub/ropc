@@ -41,20 +41,35 @@ static struct imm_node *R_immediate_exp(void);
 
 
 static int
-R_attribute(int allow, int *regparm)
+R_attribute(int allow, int *regparm, int *restack)
 {
     int attr = 0;
+    const char *sym = token.sym;
     ENTER();
     if (!IS(T_ID)) {
         expect("attribute");
     }
-    if (!strcmp(token.sym, "noreturn")) {
+    if (!strcmp(sym, "noreturn")) {
         attr = ATTRIB_NORETURN;
-    } else if (!strcmp(token.sym, "stdcall")) {
+    } else if (!strcmp(sym, "stdcall")) {
         attr = ATTRIB_STDCALL;
-    } else if (!strcmp(token.sym, "stack")) {
+    } else if (!strcmp(sym, "stack")) {
+        if (peek_token() == T_ASSIGN) {
+            long n;
+            next_token(); /* skip 'stack' */
+            next_token(); /* skip '=' */
+            if (!IS(T_INT)) {
+                expect("integer");
+            }
+            n = strtol(token.sym, NULL, 0);
+            if (n > 0 && n <= 0x2000) {
+                *restack = n;
+            } else {
+                cry("invalid restack value %ld, using defaults\n", n);
+            }
+        }
         attr = ATTRIB_STACK;
-    } else if (!strcmp(token.sym, "regparm")) {
+    } else if (!strcmp(sym, "regparm")) {
         long n;
         next_token(); /* skip 'regparm' */
         if (!IS(T_ASSIGN)) {
@@ -73,7 +88,7 @@ R_attribute(int allow, int *regparm)
         expect("attribute");
     }
     if (!(allow & attr)) {
-        cry("ignoring attribute '%s'\n", token.sym);
+        cry("ignoring attribute '%s'\n", sym);
         attr = ATTRIB_UNKNOWN;
     }
     next_token(); /* skip attribute */
@@ -83,14 +98,14 @@ R_attribute(int allow, int *regparm)
 
 
 static int
-R_attribute_list(int allow, int *regparm)
+R_attribute_list(int allow, int *regparm, int *restack)
 {
     int attr;
     ENTER();
-    attr = R_attribute(allow, regparm);
+    attr = R_attribute(allow, regparm, restack);
     while (IS(T_COMMA)) {
         next_token(); /* skip ',' */
-        attr |= R_attribute(allow, regparm);
+        attr |= R_attribute(allow, regparm, restack);
     }
     LEAVE();
     return attr;
@@ -98,14 +113,14 @@ R_attribute_list(int allow, int *regparm)
 
 
 static int
-R_attribute_spec(int allow, int *regparm)
+R_attribute_spec(int allow, int *regparm, int *restack)
 {
     int attr = 0;
     ENTER();
     if (IS(T_OPENSQUARE) && peek_token() == T_OPENSQUARE) {
         next_token(); /* skip '[' */
         next_token(); /* skip '[' */
-        attr = R_attribute_list(allow, regparm);
+        attr = R_attribute_list(allow, regparm, restack);
         if (!IS(T_CLOSESQUARE)) {
             expect("']'");
         }
@@ -269,9 +284,9 @@ static struct node *
 R_rvalue_exp(struct the_node *the_node)
 {
     struct node *n;
-    int attr, regparm = -1;
+    int attr, regparm = -1, restack = -1;
     ENTER();
-    attr = R_attribute_spec(ATTRIB_NORETURN | ATTRIB_STDCALL | ATTRIB_STACK | ATTRIB_REGPARM, &regparm);
+    attr = R_attribute_spec(ATTRIB_NORETURN | ATTRIB_STDCALL | ATTRIB_STACK | ATTRIB_REGPARM, &regparm, &restack);
     if (attr) {
         if (IS(T_ID) && peek_token() == T_OPENBRACE) {
             goto funcall;
@@ -286,6 +301,7 @@ R_rvalue_exp(struct the_node *the_node)
         f->parm = NULL;
         f->attr = attr;
         f->regparm = regparm;
+        f->restack = restack;
         next_token(); /* skip ID */
         next_token(); /* skip '(' */
         if (!IS(T_CLOSEBRACE)) {
@@ -508,7 +524,7 @@ R_external_decl(struct the_node *the_node)
     ENTER();
     if (IS(T_K_EXTERN)) {
         const char *import;
-        int attr, regparm = -1;
+        int attr, regparm = -1, restack = -1;
         unsigned long long val = -1;
         next_token(); /* skip 'extern' */
         if (!IS(T_ID)) {
@@ -516,7 +532,7 @@ R_external_decl(struct the_node *the_node)
         }
         import = token.sym;
         next_token(); /* skip ID */
-        attr = R_attribute_spec(ATTRIB_NORETURN | ATTRIB_STDCALL | ATTRIB_REGPARM, &regparm);
+        attr = R_attribute_spec(ATTRIB_NORETURN | ATTRIB_STDCALL | ATTRIB_REGPARM, &regparm, &restack);
         if (IS(T_ASSIGN)) {
             next_token(); /* skip '=' */
             if (!IS(T_INT)) {

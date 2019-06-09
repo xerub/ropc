@@ -321,6 +321,7 @@ make1(enum R_OP op, ...)
             break;
         case ADD_SP:
             strip[idx++] = (BRICK)op;
+            strip[idx++] = (BRICK)(long)va_arg(ap, int);
             break;
         case BX_IMM:
         case BX_IMM_1: {
@@ -471,7 +472,8 @@ emit_finalize(void)
             }
             free(arg);
         } else if (op == ADD_SP) {
-            printf("        times 0x%x dd 0\n", inloop_stack);
+            long restack = (long)*p++;
+            printf("        times 0x%lx dd 0\n", (restack > 0) ? restack : inloop_stack);
         } else {
             printf("        dg    0x%-28llX; -> PC: %s\n", r->addr, r->text);
         }
@@ -645,7 +647,7 @@ emit_mul(const char *value, const char *multiplier, int deref0, BOOL swap)
 
 
 void
-emit_call(const char *func, char **args, int nargs, int deref0, BOOL inloop, BOOL retval, int attr, int regparm)
+emit_call(const char *func, char **args, int nargs, int deref0, BOOL inloop, BOOL retval, int attr, int regparm, int restack)
 {
     char *tmp = NULL;
     enum R_OP op = BLR_X19;
@@ -713,7 +715,7 @@ emit_call(const char *func, char **args, int nargs, int deref0, BOOL inloop, BOO
         char *skip8 = create_address_str(skip, -8);
         make1(LDR_X29, skip8);
         make1(COMMUTE, NULL);
-        make1(ADD_SP);
+        make1(ADD_SP, restack);
         make1(LABEL, skip, 0);
         add_label(skip, -1);
         free(skip8);
