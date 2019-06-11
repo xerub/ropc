@@ -15,6 +15,7 @@ alloc_call_node(void)
     struct call_node *n = xmalloc(sizeof(struct call_node));
     n->next = NULL;
     n->type = NODE_CALL;
+    n->inverse = 0;
     return n;
 }
 
@@ -25,6 +26,7 @@ alloc_imm_node(void)
     struct imm_node *n = xmalloc(sizeof(struct imm_node));
     n->next = NULL;
     n->type = NODE_IMM;
+    n->inverse = 0;
     return n;
 }
 
@@ -35,6 +37,7 @@ alloc_lval_node(void)
     struct lval_node *n = xmalloc(sizeof(struct lval_node));
     n->next = NULL;
     n->type = NODE_LVAL;
+    n->inverse = 0;
     return n;
 }
 
@@ -45,6 +48,7 @@ alloc_add_node(void)
     struct add_node *n = xmalloc(sizeof(struct add_node));
     n->next = NULL;
     n->type = NODE_ADD;
+    n->inverse = 0;
     return n;
 }
 
@@ -55,6 +59,7 @@ alloc_mul_node(void)
     struct mul_node *n = xmalloc(sizeof(struct mul_node));
     n->next = NULL;
     n->type = NODE_MUL;
+    n->inverse = 0;
     return n;
 }
 

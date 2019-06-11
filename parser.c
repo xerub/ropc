@@ -376,6 +376,8 @@ R_additive_exp(struct the_node *the_node)
         next_token(); /* skip '+' */
         q = R_multiplicative_exp(the_node);
         q->inverse = negative;
+        negative ^= p->inverse;
+        /* XXX TODO a proper constant folding pass */
         if (optimize_add && p->type == NODE_IMM && q->type == NODE_IMM && ((!is_address(AS_IMM(p)->value) ^ negative) | !is_address(AS_IMM(q)->value))) {
             char *v1 = AS_IMM(p)->value;
             char *v2 = AS_IMM(q)->value;
