@@ -67,7 +67,7 @@ struct R_OPDEF {
     unsigned output;    // which registers will be loaded from stack
     unsigned auxout;    // which registers will be loaded from stack as a side-effect
     int incsp;
-    uint64_t addr;
+    unsigned long long addr;
     const char *text;
 };
 
