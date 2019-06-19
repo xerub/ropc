@@ -127,10 +127,10 @@ reverse_list(void *n)
 
 
 static struct range *
-parse_macho_ranges(const unsigned char *p, uint64_t address, struct range *ranges)
+parse_macho_ranges(const unsigned char *p, struct range *ranges)
 {
     unsigned int i;
-    const struct mach_header *hdr = (struct mach_header *)(p + address);
+    const struct mach_header *hdr = (struct mach_header *)p;
     char *q;
 
     int is64 = (hdr->magic & 1) * 4;
@@ -139,20 +139,20 @@ parse_macho_ranges(const unsigned char *p, uint64_t address, struct range *range
         return ranges;
     }
 
-    q = (char *)(p + address + sizeof(struct mach_header) + is64);
+    q = (char *)(p + sizeof(struct mach_header) + is64);
     for (i = 0; i < hdr->ncmds; i++) {
         const struct load_command *cmd = (struct load_command *)q;
         uint32_t c = cmd->cmd;
         if (c == LC_SEGMENT) {
             const struct segment_command *seg = (struct segment_command *)q;
             if (seg->initprot & 4) {
-                ranges = add_range(ranges, address + seg->fileoff, seg->vmaddr, seg->filesize);
+                ranges = add_range(ranges, seg->fileoff, seg->vmaddr, seg->filesize);
             }
         }
         if (c == LC_SEGMENT_64) {
             const struct segment_command_64 *seg = (struct segment_command_64 *)q;
             if (seg->initprot & 4) {
-                ranges = add_range(ranges, address /*+ seg->fileoff*/, seg->vmaddr, seg->filesize);
+                ranges = add_range(ranges, seg->fileoff, seg->vmaddr, seg->filesize);
             }
         }
         q = q + cmd->cmdsize;
@@ -168,35 +168,9 @@ parse_cache_ranges(const unsigned char *p, struct range *ranges)
     unsigned i;
     const struct dyld_cache_header *hdr = (struct dyld_cache_header *)p;
     const struct dyld_cache_mapping_info *map = (struct dyld_cache_mapping_info *)(p + hdr->mappingOffset);
-    const struct dyld_cache_image_info *img = (struct dyld_cache_image_info *)(p + hdr->imagesOffset);
-    printf("magic: \"%.16s\"\n", hdr->magic);
-    printf("mappingOffset: 0x%X\n", hdr->mappingOffset);
-    printf("mappingCount: %d\n", hdr->mappingCount);
-    printf("imagesOffset: 0x%X\n", hdr->imagesOffset);
-    printf("imagesCount: %d\n", hdr->imagesCount);
-    printf("dyldBaseAddress: 0x%llX\n", hdr->dyldBaseAddress);
-    printf("codeSignatureOffset: 0x%llX\n", hdr->codeSignatureOffset);
-    printf("codeSignatureSize: %lld\n", hdr->codeSignatureSize);
     for (i = 0; i < hdr->mappingCount; i++) {
-        printf("MAPPING#%d\n", i);
-        printf("\taddress = 0x%llX\n", map[i].address);
-        printf("\tsize = %lld\n", map[i].size);
-        printf("\tfileOffset = 0x%llX\n", map[i].fileOffset);
-        printf("\tprotection = 0x%X / 0x%X\n", map[i].maxProt, map[i].initProt);
-    }
-    for (i = 0; i < hdr->imagesCount; i++) {
-        uint64_t address = img[i].address;
-        int j = find_mapping(hdr->mappingCount, map, address);
-
-        printf("IMAGE#%d\n", i);
-        printf("\taddress = 0x%llX\n", img[i].address);
-        printf("\tmodTime = %lld\n", img[i].modTime);
-        printf("\tinode = %lld\n", img[i].inode);
-        printf("\tpathFileOffset = 0x%X\n", img[i].pathFileOffset);
-        /*printf("\tpad = 0x%X\n", img[i].pad);*/
-        printf("\tNAME = %s\n", p + img[i].pathFileOffset);
-        if (j != -1) {
-            ranges = parse_macho_ranges(p, address - map[j].address + map[j].fileOffset, ranges);
+        if (map[i].initProt & 4) {
+            ranges = add_range(ranges, map[i].fileOffset, map[i].address, map[i].size);
         }
     }
     return ranges;
@@ -210,7 +184,7 @@ parse_ranges(const unsigned char *p)
     if (!strncmp((char *)p, "dyld_v1   arm", 13) || !strncmp((char *)p, "dyld_v1  arm", 12)) {
         ranges = parse_cache_ranges(p, NULL);
     } else {
-        ranges = parse_macho_ranges(p, 0, NULL);
+        ranges = parse_macho_ranges(p, NULL);
     }
     return reverse_list(ranges);
 }
@@ -226,7 +200,7 @@ parse_gadgets(const struct range *ranges, const unsigned char *p, void *user, ca
     for (r = ranges; r; r = r->next) {
         uint32_t i;
         const unsigned char *buf = p + r->offset;
-        uint64_t addr = r->vmaddr;
+        unsigned long long addr = r->vmaddr;
         uint32_t sz = r->filesize;
         for (i = 0; i < sz; i += 2) {
             int rv = callback(buf + i, sz - i, ap, i + addr, user);
@@ -296,8 +270,8 @@ if (is64) {
         const struct nlist_64 *pivot = &base[nextdefsym / 2];
         int cmp = strcmp(key, (char *)p + stroff + pivot->n_un.n_strx);
         if (cmp == 0) {
-            int thumb = (pivot->n_desc & N_ARM_THUMB_DEF) != 0;
-            fprintf(stderr, "0x%llX: %s\n", pivot->n_value + thumb, key);
+            long long thumb = (pivot->n_desc & N_ARM_THUMB_DEF) != 0;
+            fprintf(stderr, "0x%llX: %s\n", thumb + pivot->n_value + thumb, key);
             return pivot->n_value + thumb;
         }
         if (cmp > 0) {
@@ -312,7 +286,7 @@ if (is64) {
         int cmp = strcmp(key, (char *)p + stroff + pivot->n_un.n_strx);
         if (cmp == 0) {
             int thumb = (pivot->n_desc & N_ARM_THUMB_DEF) != 0;
-            fprintf(stderr, "0x%X: %s\n", pivot->n_value + thumb, key);
+            fprintf(stderr, "0x%X: %s\n", thumb + pivot->n_value, key);
             return pivot->n_value + thumb;
         }
         if (cmp > 0) {
@@ -819,50 +793,252 @@ is_ldmiaw(const unsigned char *buf, uint32_t sz, va_list ap, uint64_t addr, void
 }
 
 
-int
-is_string(const unsigned char *buf, uint32_t sz, va_list ap, uint64_t addr, void *user)
+/* fastsearch */
+
+
+#define UCHAR_MAX 255
+
+static unsigned char *
+boyermoore_horspool_memmem(const unsigned char* haystack, size_t hlen,
+                           const unsigned char* needle,   size_t nlen)
 {
-    int rv = 1;
-    int nibble;
-    const char *str;
-    // XXX this is awfully slow: we should not va_copy for each byte
-    va_list aq;
-    va_copy(aq, ap);
-    str = va_arg(aq, char *);
-    va_end(aq);
-    if (*str == '+') {	// a pattern starting with '+' is supposed to be arm
-        if (addr & 2) {
-            return 0;
-        }
-        rv = 2;
-        str++;
+    size_t last, scan = 0;
+    size_t bad_char_skip[UCHAR_MAX + 1]; /* Officially called:
+                                          * bad character shift */
+
+    /* Sanity checks on the parameters */
+    if (nlen <= 0 || !haystack || !needle)
+        return NULL;
+
+    /* ---- Preprocess ---- */
+    /* Initialize the table to default value */
+    /* When a character is encountered that does not occur
+     * in the needle, we can safely skip ahead for the whole
+     * length of the needle.
+     */
+    for (scan = 0; scan <= UCHAR_MAX; scan = scan + 1)
+        bad_char_skip[scan] = nlen;
+
+    /* C arrays have the first byte at [0], therefore:
+     * [nlen - 1] is the last byte of the array. */
+    last = nlen - 1;
+
+    /* Then populate it with the analysis of the needle */
+    for (scan = 0; scan < last; scan = scan + 1)
+        bad_char_skip[needle[scan]] = last - scan;
+
+    /* ---- Do the matching ---- */
+
+    /* Search the haystack, while the needle can still be within it. */
+    while (hlen >= nlen)
+    {
+        /* scan from the end of the needle */
+        for (scan = last; haystack[scan] == needle[scan]; scan = scan - 1)
+            if (scan == 0) /* If the first byte matches, we've found it. */
+                return (void *)haystack;
+
+        /* otherwise, we need to skip some bytes and start again.
+           Note that here we are getting the skip value based on the last byte
+           of needle, no matter where we didn't match. So if needle is: "abcd"
+           then we are skipping based on 'd' and that value will be 4, and
+           for "abcdd" we again skip on 'd' but the value will be only 1.
+           The alternative of pretending that the mismatched character was
+           the last character is slower in the normal case (E.g. finding
+           "abcd" in "...azcd..." gives 4 by using 'd' but only
+           4-2==2 using 'z'. */
+        hlen     -= bad_char_skip[haystack[last]];
+        haystack += bad_char_skip[haystack[last]];
     }
-    // XXX this is awfully slow: better build a byte array and a mask array and compare byte by byte
-    for (nibble = 4; *str; str++) {
-        int ch = *str;
-        if (ch == ' ') {
+
+    return NULL;
+}
+
+static size_t
+str2hex(size_t buflen, unsigned char *buf, unsigned char *mask, const char *str)
+{
+    unsigned char *ptr = buf;
+    int seq = -1;
+    int m = 0;
+    while (buflen > 0) {
+        int nibble = *str++;
+        if (nibble >= '0' && nibble <= '9') {
+            nibble -= '0';
+            m |= 0xF;
+        } else if (nibble == '.') {
+            nibble = 0;
+        } else if (nibble == ' ' && seq < 0) {
+            continue;
+        } else {
+            nibble |= 0x20;
+            if (nibble < 'a' || nibble > 'f') {
+                break;
+            }
+            nibble -= 'a' - 10;
+            m |= 0xF;
+        }
+        if (seq >= 0) {
+            *buf++ = (seq << 4) | nibble;
+            *mask++ = m;
+            buflen--;
+            seq = -1;
+            m = 0;
+        } else {
+            seq = nibble;
+            m <<= 4;
+        }
+    }
+    return buf - ptr;
+}
+
+static size_t
+find_sequence(const unsigned char *mask, size_t n, size_t *len)
+{
+    size_t i;
+    size_t seq_len = 0;
+    size_t best_len = 0;
+    size_t best_pos = 0;
+    for (i = 0; i < n; i++, seq_len++) {
+        if (mask[i] != 0xFF) {
+            if (best_len < seq_len) {
+                best_len = seq_len;
+                best_pos = i;
+            }
+            seq_len = -1;
+        }
+    }
+    if (best_len < seq_len) {
+        best_len = seq_len;
+        best_pos = i;
+    }
+    *len = best_len;
+    return best_pos - best_len;
+}
+
+static unsigned char *
+process_pattern(const char *str, size_t *len, unsigned char **out_mask, size_t *seq_pos, size_t *seq_len)
+{
+    size_t n = strlen(str) / 2;
+    unsigned char *pattern, *mask;
+
+    if (!n) {
+        return NULL;
+    }
+    pattern = malloc(n);
+    if (!pattern) {
+        return NULL;
+    }
+    mask = malloc(n);
+    if (!mask) {
+        free(pattern);
+        return NULL;
+    }
+
+    n = str2hex(n, pattern, mask, str);
+    if (!n) {
+        free(mask);
+        free(pattern);
+        return NULL;
+    }
+
+    *len = n;
+    *out_mask = mask;
+    *seq_pos = find_sequence(mask, n, seq_len);
+    return pattern;
+}
+
+static const unsigned char *
+find_string(const unsigned char* haystack, size_t hlen,
+            const unsigned char* needle,   size_t nlen,
+            const unsigned char* mask, size_t seq_pos, size_t seq_len)
+{
+    size_t tail = nlen - (seq_pos + seq_len);
+    while (hlen >= tail) {
+        size_t i;
+        const unsigned char *ptr = haystack;
+        if (seq_len) {
+            ptr = boyermoore_horspool_memmem(haystack + seq_pos, hlen - tail, needle + seq_pos, seq_len);
+            if (!ptr) {
+                break;
+            }
+            ptr -= seq_pos;
+        }
+        for (i = 0; i < seq_pos; i++) {
+            if ((ptr[i] & mask[i]) != needle[i]) {
+                break;
+            }
+        }
+        if (i < seq_pos) {
+            haystack++;
+            hlen--;
             continue;
         }
-        if (ch != '.') {
-            static const int tab[] = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, -1, -1, -1, -1, -1, -1, -1, 0xA, 0xB, 0xC, 0xD, 0xE, 0xF };
-            int val = -1;
-            if (ch >= 'a' && ch <= 'z') {
-                ch &= 0xDF;
-            }
-            if (ch >= '0' && ch <= 'F') {
-                val = tab[ch - '0'];
-            }
-            assert(val != -1);
-            if (((buf[0] >> nibble) & 0xF) != val) {
-                return 0;
+        for (i += seq_len; i < nlen; i++) {
+            if ((ptr[i] & mask[i]) != needle[i]) {
+                break;
             }
         }
-        nibble ^= 4;
-        if (nibble) {
-            buf++;
+        if (i < nlen) {
+            haystack++;
+            hlen--;
+            continue;
+        }
+        return ptr;
+    }
+    return NULL;
+}
+
+uint64_t
+parse_string(const struct range *ranges, const unsigned char *p, void *user, callback_t callback, const char *str)
+{
+    const struct range *r;
+    uint64_t found = 0;
+    int want_arm = 0;
+
+    size_t len, seq_len, seq_pos;
+    unsigned char *pattern, *mask;
+
+    if (*str == '+') {
+        str++;
+        want_arm = 1;
+    }
+
+    pattern = process_pattern(str, &len, &mask, &seq_pos, &seq_len);
+    if (!pattern) {
+        return 0;
+    }
+
+    for (r = ranges; r; r = r->next) {
+        uint32_t i;
+        const unsigned char *buf = p + r->offset;
+        const unsigned char *ptr = buf - 1;
+        while (1) {
+            unsigned long long addr;
+            size_t left = r->filesize - (++ptr - buf);
+            ptr = find_string(ptr, left, pattern, len, mask, seq_pos, seq_len);
+            if (!ptr) {
+                break;
+            }
+            addr = r->vmaddr + ptr - buf;
+            if ((addr & 2) && want_arm) {
+                continue;
+            }
+            if (callback && callback(ptr, buf + r->filesize - ptr, NULL, addr, user)) {
+                continue;
+            }
+            fprintf(stderr, "FOUND = 0x%08llX:", addr);
+            for (i = 0; i < 10; i++) {
+                fprintf(stderr, " %02x", ptr[i]);
+            }
+            fprintf(stderr, "\n");
+            found = addr;
+            goto done;
         }
     }
-    return rv;
+
+  done:
+    free(mask);
+    free(pattern);
+    return found;
 }
 
 
@@ -949,7 +1125,7 @@ main(int argc, char **argv)
     // ldmia.w r0, ...
     parse_gadgets(ranges, p, NULL, is_ldmiaw, 0, 3, 0x5000);
 #elif 1
-    parse_gadgets(ranges, p, NULL, is_string, "+ 0a f0 14 e8");
+    parse_string(ranges, p, "+ 0a f0 14 e8");
 #endif
 
     delete_ranges(ranges);

@@ -169,60 +169,60 @@ solve_op(enum R_OP op)
         case BX_IMM_1:
             return;
         case LDR_X19:
-            rv = parse_gadgets(ranges, binmap, NULL, is_string, "+ FD 7B 41 A9 F4 4F C2 A8 C0 03 5F D6");
+            rv = parse_string(ranges, binmap, NULL, NULL, "+ FD 7B 41 A9 F4 4F C2 A8 C0 03 5F D6");
             break;
         case LDR_X0:
-            rv = parse_gadgets(ranges, binmap, NULL, is_string, "+ E0 03 40 F9 00 01 3F D6");
+            rv = parse_string(ranges, binmap, NULL, NULL, "+ E0 03 40 F9 00 01 3F D6");
             break;
         case LDR_X1:
-            rv = parse_gadgets(ranges, binmap, NULL, is_string, "+ E1 03 40 F9 00 01 3F D6");
+            rv = parse_string(ranges, binmap, NULL, NULL, "+ E1 03 40 F9 00 01 3F D6");
             break;
         case LDR_X2:
-            rv = parse_gadgets(ranges, binmap, NULL, is_string, "+ E2 03 40 F9 00 01 3F D6");
+            rv = parse_string(ranges, binmap, NULL, NULL, "+ E2 03 40 F9 00 01 3F D6");
             break;
         case LDR_X3:
-            rv = parse_gadgets(ranges, binmap, NULL, is_string, "+ E3 03 40 F9 00 01 3F D6");
+            rv = parse_string(ranges, binmap, NULL, NULL, "+ E3 03 40 F9 00 01 3F D6");
             break;
         case LDR_X0_X0:
-            rv = parse_gadgets(ranges, binmap, NULL, is_string, "+ 00 00 40 F9 00 01 3F D6");
+            rv = parse_string(ranges, binmap, NULL, NULL, "+ 00 00 40 F9 00 01 3F D6");
             break;
         case ADD_X0_X1:
-            rv = parse_gadgets(ranges, binmap, NULL, is_string, "+ 00 00 01 8B FD 7B C1 A8 C0 03 5F D6");
+            rv = parse_string(ranges, binmap, NULL, NULL, "+ 00 00 01 8B FD 7B C1 A8 C0 03 5F D6");
             break;
         case SUB_X0_X1:
-            rv = parse_gadgets(ranges, binmap, NULL, is_string, "+ 00 00 01 CB FD 7B C1 A8 C0 03 5F D6");
+            rv = parse_string(ranges, binmap, NULL, NULL, "+ 00 00 01 CB FD 7B C1 A8 C0 03 5F D6");
             if (!rv) {
-                rv = parse_gadgets(ranges, binmap, NULL, is_string, "+ 00 00 01 CB FD 7B 41 A9 FF 83 00 91 C0 03 5F D6");
+                rv = parse_string(ranges, binmap, NULL, NULL, "+ 00 00 01 CB FD 7B 41 A9 FF 83 00 91 C0 03 5F D6");
                 optab[SUB_X0_X1].incsp = 2;
                 optab[SUB_X0_X1].text = "sub x0, x0, x1 / ldp x29, x30, [sp, #0x10] / add sp, sp, #0x20 / ret";
             }
             break;
         case MUL_X0_X19:
-            rv = parse_gadgets(ranges, binmap, NULL, is_string, "+ 00 7C 13 9B FD 7B 41 A9 F4 4F C2 A8 C0 03 5F D6");
+            rv = parse_string(ranges, binmap, NULL, NULL, "+ 00 7C 13 9B FD 7B 41 A9 F4 4F C2 A8 C0 03 5F D6");
             break;
         case BLR_X19:
-            rv = parse_gadgets(ranges, binmap, NULL, is_string, "+ 60 02 3F D6 FD 7B 42 A9 F4 4F 41 A9 F6 57 C3 A8 C0 03 5F D6");
+            rv = parse_string(ranges, binmap, NULL, NULL, "+ 60 02 3F D6 FD 7B 42 A9 F4 4F 41 A9 F6 57 C3 A8 C0 03 5F D6");
             break;
         case STR_X0_X19:
-            rv = parse_gadgets(ranges, binmap, NULL, is_string, "+ 60 02 00 F9 FD 7B 41 A9 F4 4F C2 A8 C0 03 5F D6");
+            rv = parse_string(ranges, binmap, NULL, NULL, "+ 60 02 00 F9 FD 7B 41 A9 F4 4F C2 A8 C0 03 5F D6");
             break;
         case COMMUTE:
-            rv = parse_gadgets(ranges, binmap, NULL, is_string, "+ BF 03 00 91 FD 7B C1 A8 C0 03 5F D6");
+            rv = parse_string(ranges, binmap, NULL, NULL, "+ BF 03 00 91 FD 7B C1 A8 C0 03 5F D6");
             break;
         case NOT_X0:
-            rv = parse_gadgets(ranges, binmap, NULL, is_string, "+ 1F 00 00 F1 E0 17 9F 1A FD 7B 41 A9 F4 4F C2 A8 C0 03 5F D6");
+            rv = parse_string(ranges, binmap, NULL, NULL, "+ 1F 00 00 F1 E0 17 9F 1A FD 7B 41 A9 F4 4F C2 A8 C0 03 5F D6");
             break;
         case SEL_1:
-            rv = parse_gadgets(ranges, binmap, NULL, is_string, "+ 73 12 9F 9A E0 03 13 AA FD 7B 41 A9 F4 4F C2 A8 C0 03 5F D6");
+            rv = parse_string(ranges, binmap, NULL, NULL, "+ 73 12 9F 9A E0 03 13 AA FD 7B 41 A9 F4 4F C2 A8 C0 03 5F D6");
             if (!rv) {
-                rv = parse_gadgets(ranges, binmap, NULL, is_string, "+ 73 12 9F 9A E0 03 13 AA FD 7B 42 A9 F4 4F 41 A9 F6 57 C3 A8 C0 03 5F D6");
+                rv = parse_string(ranges, binmap, NULL, NULL, "+ 73 12 9F 9A E0 03 13 AA FD 7B 42 A9 F4 4F 41 A9 F6 57 C3 A8 C0 03 5F D6");
                 if (rv) {
                     optab[SEL_1].output |= X21|X22;
                     optab[SEL_1].auxout |= X21|X22;
                     optab[SEL_1].text = "csel x19, x19, xzr, ne / mov x0, x19 / ldp x29, x30, [sp, #0x20] / ldp x20, x19, [sp, #0x10] / ldp x22, x21, [sp], #0x30 / ret";
                     break;
                 }
-                rv = parse_gadgets(ranges, binmap, NULL, is_string, "+ 73 12 9F 9A E0 03 13 AA FD 7B 42 A9 F4 4F 41 A9 FF C3 00 91 C0 03 5F D6");
+                rv = parse_string(ranges, binmap, NULL, NULL, "+ 73 12 9F 9A E0 03 13 AA FD 7B 42 A9 F4 4F 41 A9 FF C3 00 91 C0 03 5F D6");
                 if (rv) {
                     optab[SEL_1].output |= X21|X22;
                     optab[SEL_1].auxout |= X21|X22;
@@ -232,28 +232,28 @@ solve_op(enum R_OP op)
             }
             break;
         case SEL_2:
-            rv = parse_gadgets(ranges, binmap, NULL, is_string, "+ 73 02 80 9A E0 03 13 AA FD 7B 41 A9 F4 4F C2 A8 C0 03 5F D6");
+            rv = parse_string(ranges, binmap, NULL, NULL, "+ 73 02 80 9A E0 03 13 AA FD 7B 41 A9 F4 4F C2 A8 C0 03 5F D6");
             break;
         case PIVOT:
-            rv = parse_gadgets(ranges, binmap, NULL, is_string, "+ 3F 00 00 91 00 00 1F D6");
+            rv = parse_string(ranges, binmap, NULL, NULL, "+ 3F 00 00 91 00 00 1F D6");
             break;
         case MOV_X1_X0:
-            rv = parse_gadgets(ranges, binmap, NULL, is_string, "+ E1 03 00 AA 00 01 3F D6");
+            rv = parse_string(ranges, binmap, NULL, NULL, "+ E1 03 00 AA 00 01 3F D6");
             break;
         case MOV_X0_X1:
-            rv = parse_gadgets(ranges, binmap, NULL, is_string, "+ E0 03 01 AA 00 01 3F D6");
+            rv = parse_string(ranges, binmap, NULL, NULL, "+ E0 03 01 AA 00 01 3F D6");
             break;
         case LDR_X29:
-            rv = parse_gadgets(ranges, binmap, NULL, is_string, "+ FD 7B C1 A8 C0 03 5F D6");
+            rv = parse_string(ranges, binmap, NULL, NULL, "+ FD 7B C1 A8 C0 03 5F D6");
             break;
         case RET_X8:
-            rv = parse_gadgets(ranges, binmap, NULL, is_string, "+ E8 07 40 F9 00 01 3F D6");
+            rv = parse_string(ranges, binmap, NULL, NULL, "+ E8 07 40 F9 00 01 3F D6");
             break;
         case BR_X3:
-            rv = parse_gadgets(ranges, binmap, NULL, is_string, "+ FD 7B C1 A8 60 00 1F D6");
+            rv = parse_string(ranges, binmap, NULL, NULL, "+ FD 7B C1 A8 60 00 1F D6");
             break;
         case BR_X16:
-            rv = parse_gadgets(ranges, binmap, NULL, is_string, "+ F0 03 00 AA E7 1B C1 A8 E5 13 C1 A8 E3 0B C1 A8 E1 03 C1 A8 FD 7B C1 A8 00 02 1F D6");
+            rv = parse_string(ranges, binmap, NULL, NULL, "+ F0 03 00 AA E7 1B C1 A8 E5 13 C1 A8 E3 0B C1 A8 E1 03 C1 A8 FD 7B C1 A8 00 02 1F D6");
             break;
     }
     if (!rv) {

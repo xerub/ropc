@@ -8,6 +8,7 @@ typedef int (*callback_t)(const unsigned char *p, uint32_t size, va_list ap, uin
 
 uint64_t parse_symbols(const unsigned char *p, const char *key);
 uint64_t parse_gadgets(const struct range *ranges, const unsigned char *p, void *user, callback_t callback, ...);
+uint64_t parse_string(const struct range *ranges, const unsigned char *p, void *user, callback_t callback, const char *str);
 struct range *parse_ranges(const unsigned char *p);
 void delete_ranges(struct range *ranges);
 
@@ -30,6 +31,5 @@ int is_MOV_R0_Rx(const unsigned char *buf, uint32_t sz, va_list ap, uint64_t add
 int is_COMPARE(const unsigned char *buf, uint32_t sz, va_list ap, uint64_t addr, void *user);
 int is_ldmia(const unsigned char *buf, uint32_t sz, va_list ap, uint64_t addr, void *user);
 int is_ldmiaw(const unsigned char *buf, uint32_t sz, va_list ap, uint64_t addr, void *user);
-int is_string(const unsigned char *buf, uint32_t sz, va_list ap, uint64_t addr, void *user);
 
 #endif
