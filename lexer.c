@@ -231,6 +231,25 @@ next_token(void)
     if (itok < ntok) {
         token.sym = tokens[itok++];
         token.type = eval_token(token.sym);
+#ifdef LEXER_STR_MERGE
+        while (token.type == T_STRING && peek_token() == T_STRING) {
+            const char *str1 = token.sym;
+            const char *str2 = tokens[itok];
+            size_t str1_len = strlen(str1);
+            size_t str2_len = strlen(str2);
+            char *buf = malloc(str1_len + str2_len - 1);
+            if (!buf) {
+                cry("out of memory\n");
+                break;
+            }
+            memcpy(buf, str1, str1_len - 1);
+            memcpy(buf + str1_len - 1, str2 + 1, str2_len - 2);
+            buf[str1_len + str2_len - 3] = *buf;
+            buf[str1_len + str2_len - 2] = '\0';
+            free(tokens[itok]);
+            token.sym = tokens[itok++] = buf;
+        }
+#endif
 #ifdef LEXER_DEBUG
         printf(";// token %s <%d>\n", token.sym, token.type);
 #endif

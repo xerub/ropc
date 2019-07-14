@@ -6,6 +6,7 @@
 #undef PARSER_DEBUG
 #undef DATA_DEBUG
 #define LEXER_READ_CPP
+#define LEXER_STR_MERGE
 #undef SLOW_LOAD_SAVE
 #define MAX_FUNC_ARGS 16
 

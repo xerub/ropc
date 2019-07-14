@@ -42,6 +42,8 @@ Numbers:
 Identifiers:
     a3, bla	T_ID
 
+Adjacent strings can be merged into one single string.
+
 Part 3. The Parser
 ==================
 
