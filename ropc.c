@@ -40,6 +40,7 @@ int optimize_reg = 0;
 int optimize_jmp = 0;
 int show_reg_set = 0;
 int nasm_esc_str = 0;
+int enable_cfstr = 0;
 int inloop_stack = 256;
 
 static const char *binary = NULL;
@@ -65,6 +66,7 @@ check_args(int argc, char **argv)
                 "    -c          file to link against: gadgets, imports\n"
                 "    -g          print detailed register usage\n"
                 "    -n          emit NASM escaped strings: `hello\\n`\n"
+                "    -a          accept Apple NSString-like constructs: @\"Hello\"\n"
                 "    -V          print version and exit\n"
                 , argv[0]);
             exit(0);
@@ -98,6 +100,9 @@ check_args(int argc, char **argv)
                 break;
             case 'n':
                 nasm_esc_str = 1;
+                break;
+            case 'a':
+                enable_cfstr = 1;
                 break;
             case 'c':
                 if (++i >= argc) {

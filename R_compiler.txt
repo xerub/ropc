@@ -35,6 +35,7 @@ Regular tokens:
     -		T_SUB
     *		T_MUL
     &		T_AND
+    @		T_AT
 Strings:
     "a", 'b'	T_STRING
 Numbers:

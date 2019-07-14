@@ -51,6 +51,7 @@ immediate_exp		: NUMBER
 			| '+' NUMBER
 			| '-' NUMBER
 			| STRING
+			| '@' STRING
 			| '&' ID
 			| '{' initializer_list '}'
 			;

@@ -168,6 +168,27 @@ R_immediate_exp(void)
         LEAVE();
         return n;
     }
+    if (IS(T_AT) && enable_cfstr) {
+        char buf[32];
+        const char **args;
+        next_token(); /* skip '@' */
+        if (!IS(T_STRING)) {
+            expect("string");
+        }
+        sprintf(buf, "%zu", strlen(token.sym) - 2);
+        args = xmalloc(4 * sizeof(char *));
+        if (!try_symbol_extern("__CFConstantStringClassReference")) {
+            die("__CFConstantStringClassReference not imported\n");
+        }
+        args[0] = xstrdup("__CFConstantStringClassReference");
+        args[1] = xstrdup("0x7c8");
+        args[2] = create_address_str(add_string(token.sym), 0);
+        args[3] = xstrdup(buf);
+        n->value = create_address_str(add_vector(args, 4), 0);
+        next_token(); /* skip STRING */
+        LEAVE();
+        return n;
+    }
     if (IS(T_STRING)) {
         n->value = create_address_str(add_string(token.sym), 0);
         next_token(); /* skip STRING */
@@ -312,7 +333,7 @@ R_rvalue_exp(struct the_node *the_node)
         }
         next_token(); /* skip ')' */
         n = (struct node *)f;
-    } else if (IS(T_INT) || IS(T_STRING) || IS(T_AND) || IS(T_ADD) || IS(T_SUB) || IS(T_OPENCURLY)) {
+    } else if (IS(T_INT) || IS(T_STRING) || IS(T_AND) || IS(T_AT) || IS(T_ADD) || IS(T_SUB) || IS(T_OPENCURLY)) {
         n = (struct node *)R_immediate_exp();
     } else if (IS(T_OPENBRACE)) {
         next_token(); /* skip '(' */

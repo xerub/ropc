@@ -16,6 +16,7 @@ enum TOKTYPE {
     T_SUB,         /* -                      */
     T_MUL,         /* *   alias to pointer   */
     T_AND,         /* &   alias to address   */
+    T_AT,          /* @                      */
 
     T_ID,          /* identifier             */
     T_STRING,      /* string constant        */

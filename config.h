@@ -17,6 +17,7 @@ extern int optimize_reg;
 extern int optimize_jmp;
 extern int show_reg_set;
 extern int nasm_esc_str;
+extern int enable_cfstr;
 extern int inloop_stack;
 
 extern const unsigned char *binmap;

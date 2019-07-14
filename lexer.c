@@ -102,6 +102,7 @@ tokenize(const char *s)
             case '-':
             case '*':
             case '&':
+            case '@':
                 len = 1;
                 break;
         }
@@ -212,6 +213,8 @@ eval_token(const char *s)
         type = T_MUL;
     } else if (!strcmp(s, "&")) {
         type = T_AND;
+    } else if (!strcmp(s, "@")) {
+        type = T_AT;
     } else if (IS_STRING(s)) {
         type = T_STRING;
     } else if (isdigit(*s)) {
