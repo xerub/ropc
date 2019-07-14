@@ -54,7 +54,19 @@ check_args(int argc, char **argv)
     for (i = 1; i < argc && *(p = argv[i]) == '-'; i++) {
         const char *q = p + 2;
         if (!strcmp(p, "-h")) {
-            printf("usage: %s [-O2] [-O{i|a|r|j}] [-mregparm=N] [-mrestack=S] [-g] [-n] [-c cache] file\n", argv[0]);
+            printf("usage: %s [-O2] [-O{i|a|r|j}] [-mregparm=N] [-mrestack=S] [-g] [-n] [-c cache] file\n"
+                "    -mregparm   number of parameters passed in registers for calling functions\n"
+                "    -mrestack   number of words to reserve on the stack prior to calls\n"
+                "    -Oi         optimize immediate assignment\n"
+                "    -Oa         optimize simple arithmetic\n"
+                "    -Or         optimize register usage\n"
+                "    -Oj         optimize jumps (ARM32)\n"
+                "    -O2         all of the above\n"
+                "    -c          file to link against: gadgets, imports\n"
+                "    -g          print detailed register usage\n"
+                "    -n          emit NASM escaped strings: `hello\\n`\n"
+                "    -V          print version and exit\n"
+                , argv[0]);
             exit(0);
         }
         if (!strcmp(p, "-V")) {
