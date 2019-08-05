@@ -215,6 +215,10 @@ eval_token(const char *s)
         type = T_AND;
     } else if (!strcmp(s, "@")) {
         type = T_AT;
+#ifdef LEXER_APOS_INT
+    } else if (*s == '\'') {
+        type = T_INT;
+#endif
     } else if (IS_STRING(s)) {
         type = T_STRING;
     } else if (isdigit(*s)) {
@@ -234,6 +238,38 @@ next_token(void)
     if (itok < ntok) {
         token.sym = tokens[itok++];
         token.type = eval_token(token.sym);
+#ifdef LEXER_APOS_INT
+        if (token.type == T_INT && token.sym[0] == '\'') {
+            char buf[32];
+            unsigned i, j;
+            const char *s = token.sym;
+            unsigned long long val = 0;
+            for (i = 1, j = 0; s[i] != '\''; i++, j++) {
+                int ch = s[i];
+                if (ch == '\\') {
+                    switch (s[++i]) {
+                        case '0': ch = 0; break;
+                        case 'n': ch = '\n'; break;
+                        case 't': ch = '\t'; break;
+                        case '\\': break;
+                        default:
+                            j = 8;
+                    }
+                }
+                val = (val << 8) | ch;
+            }
+            if (j == 0 || j > 8) {
+                die("bad multichar: %s\n", token.sym);
+            }
+            sprintf(buf, "0x%llx", val);
+            token.sym = strdup(buf);
+            if (!token.sym) {
+                die("out of memory\n");
+            }
+            free(tokens[--itok]);
+            tokens[itok++] = (char *)token.sym;
+        }
+#endif
 #ifdef LEXER_STR_MERGE
         while (token.type == T_STRING && peek_token() == T_STRING) {
             const char *str1 = token.sym;

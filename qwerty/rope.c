@@ -110,7 +110,7 @@ height = 16;
 pitch = 256;                                    // width * 4
 size = 4096;                                    // width * height * 4
 bPE = 4;
-pixelFormat = 'ARGB';
+pixelFormat = "ARGB";
 volatile kIOSurfaceAddress = { __CFConstantStringClassReference, 0x7c8, "IOSurfaceAddress", 16 };
 
 volatile dict = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, kCFTypeDictionaryKeyCallBacks, kCFTypeDictionaryValueCallBacks);

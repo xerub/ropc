@@ -37,9 +37,10 @@ Regular tokens:
     &		T_AND
     @		T_AT
 Strings:
-    "a", 'b'	T_STRING
+    "a"		T_STRING
 Numbers:
     0x1, 077, 5	T_INT
+    'a'		T_INT
 Identifiers:
     a3, bla	T_ID
 
