@@ -425,6 +425,7 @@ emit_nodes(struct node *n, const char *assignto, BOOL force, BOOL inloop)
                 if (term->next) {
                     add_symbol_forward(sum, 0);
                     emit_store_indirect(sum);
+                    make_symbol_used(sum);
                 }
                 free(prev_tmp);
                 prev_tmp = sum;
