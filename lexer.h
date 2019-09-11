@@ -15,6 +15,9 @@ enum TOKTYPE {
     T_ADD,         /* +                      */
     T_SUB,         /* -                      */
     T_MUL,         /* *   alias to pointer   */
+    T_DIV,         /* /                      */
+    T_OR,          /* |                      */
+    T_XOR,         /* ^                      */
     T_AND,         /* &   alias to address   */
     T_AT,          /* @                      */
 

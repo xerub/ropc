@@ -1,15 +1,21 @@
 #include <assert.h>
 #include <ctype.h>
+#include <err.h>
+#include <errno.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 #include "config.h"
 #include "util.h"
 #include "lexer.h"
 
 
 #define isalnu_(c) (isalnum(c) || ((c) == '_'))
+
+
+#define ADDRESS_MARK '@'
 
 
 #ifndef __GNUC__
@@ -76,14 +82,14 @@ create_address_str(const char *str, int offset)
         int len = strlen(str) + 1;
         char *p = malloc(len + 16);
         if (p) {
-            p[0] = '&';
+            p[0] = ADDRESS_MARK;
             memcpy(p + 1, str, len - 1);
             sprintf(p + len, " %+d", offset);
         }
         assert(p);
         return p;
     }
-    return prepend('&', str);
+    return prepend(ADDRESS_MARK, str);
 }
 
 
@@ -121,7 +127,51 @@ create_op_str(const char *str1, const char *str2, int op)
     int len1;
     int len2;
     char *p;
-    if (is_address(str2) && (op == '+' || op == '*')) {
+#if 0
+    do {
+        unsigned long long num1;
+        unsigned long long num2;
+        errno = 0;
+        num1 = strtoull(str1, &p, 0);
+        if (errno || p <= str1 || *p) {
+            break;
+        }
+        errno = 0;
+        num2 = strtoull(str2, &p, 0);
+        if (errno || p <= str2 || *p) {
+            break;
+        }
+        switch (op) {
+            case '+':
+                num1 += num2;
+                break;
+            case '-':
+                num1 -= num2;
+                break;
+            case '*':
+                num1 *= num2;
+                break;
+            case '&':
+                num1 &= num2;
+                break;
+            case '|':
+                num1 &= num2;
+                break;
+            case '^':
+                num1 &= num2;
+                break;
+            default:
+                continue;
+        }
+        p = malloc(32);
+        if (!p) {
+            break;
+        }
+        sprintf(p, "%llu", num1);
+        return p;
+    } while (0);
+#endif
+    if (is_address(str2) && (op == '+' || op == '*' || op == '&' || op == '|' || op == '^')) {
         const char *tmp;
         assert(!is_address(str1));
         tmp = str1;
@@ -146,14 +196,38 @@ create_op_str(const char *str1, const char *str2, int op)
 }
 
 
+int
+is_pot_str(const char *str)
+{
+    char *p;
+    int trailing = 0;
+    unsigned long long b;
+    errno = 0;
+    b = strtoull(str, &p, 0);
+    if (errno || p <= str || *p) {
+        return -1;
+    }
+    if (b == 0) {
+        return 0;
+    }
+    if (b & (b - 1)) {
+        return -1;
+    }
+    do {
+        trailing++;
+    } while (b >>= 1);
+    return trailing;
+}
+
+
 const char *
 is_address(const char *str)
 {
-    str = strchr(str, '&');
+    str = strchr(str, ADDRESS_MARK);
     if (!str) {
         return NULL;
     }
-    assert(!strchr(str + 1, '&'));
+    assert(!strchr(str + 1, ADDRESS_MARK));
     return str;
 }
 
@@ -164,7 +238,7 @@ curate_address(const char *str)
     char *p;
     size_t len = strlen(str);
     const char *at = is_address(str);
-    assert(at && !strchr(at + 1, '&'));
+    assert(at && !strchr(at + 1, ADDRESS_MARK));
     p = malloc(len);
     if (p) {
         size_t pos = at - str;
@@ -233,4 +307,52 @@ cry(const char *fmt, ...)
     va_start(ap, fmt);
     vfprintf(stderr, fmt, ap);
     va_end(ap);
+}
+
+
+static char *outfn = NULL;
+static FILE *outfp = NULL;
+
+int
+printx(const char *fmt, ...)
+{
+    int rv;
+    va_list ap;
+    va_start(ap, fmt);
+    rv = vfprintf(outfp ? outfp : stdout, fmt, ap);
+    va_end(ap);
+    return rv;
+}
+
+void
+new_printer(const char *filename)
+{
+    if (outfn) {
+        FILE *f;
+        char buf[BUFSIZ];
+        assert(outfp);
+        fflush(outfp);
+        rewind(outfp);
+        f = fopen(outfn, "wt");
+        if (!f) {
+            errx(1, "cannot write to '%s'", outfn);
+        }
+        while (fgets(buf, sizeof(buf), outfp)) {
+            fputs(buf, f);
+        }
+        fclose(f);
+        fclose(outfp);
+        free(outfn);
+    }
+
+    if (!filename) {
+        outfn = NULL;
+        outfp = NULL;
+        return;
+    }
+
+    outfn = xstrdup(filename);
+    outfp = tmpfile();
+    assert(outfp);
+    unlink(outfn);
 }

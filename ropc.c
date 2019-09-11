@@ -34,6 +34,7 @@
 #include "backend.h"
 
 
+int test_gadgets = 0;
 int optimize_imm = 0;
 int optimize_add = 0;
 int optimize_reg = 0;
@@ -43,8 +44,10 @@ int nasm_esc_str = 0;
 int enable_cfstr = 0;
 int inloop_stack = 256;
 
+static const char *outfile = NULL;
 static const char *binary = NULL;
 const unsigned char *binmap = NULL;
+size_t binsz = 0;
 
 
 static int
@@ -55,15 +58,16 @@ check_args(int argc, char **argv)
     for (i = 1; i < argc && *(p = argv[i]) == '-'; i++) {
         const char *q = p + 2;
         if (!strcmp(p, "-h")) {
-            printf("usage: %s [-O2] [-O{i|a|r|j}] [-mregparm=N] [-mrestack=S] [-g] [-n] [-c cache] file\n"
-                "    -mregparm   number of parameters passed in registers for calling functions\n"
+            printf("usage: %s [-O2] [-O{i|a|r|j}] [-mrestack=S] [-g] [-n] [a] [-c cache] [-t] [-o output] file\n"
                 "    -mrestack   number of words to reserve on the stack prior to calls\n"
                 "    -Oi         optimize immediate assignment\n"
                 "    -Oa         optimize simple arithmetic\n"
                 "    -Or         optimize register usage\n"
-                "    -Oj         optimize jumps (ARM32)\n"
+                "    -Oj         optimize jumps\n"
                 "    -O2         all of the above\n"
+                "    -o          write output to file\n"
                 "    -c          file to link against: gadgets, imports\n"
+                "    -t          test gadgets (used with -c)\n"
                 "    -g          print detailed register usage\n"
                 "    -n          emit NASM escaped strings: `hello\\n`\n"
                 "    -a          accept Apple NSString-like constructs: @\"Hello\"\n"
@@ -104,17 +108,22 @@ check_args(int argc, char **argv)
             case 'a':
                 enable_cfstr = 1;
                 break;
+            case 't':
+                test_gadgets++;
+                break;
             case 'c':
                 if (++i >= argc) {
                     errx(1, "argument to '%s' is missing", p);
                 }
                 binary = argv[i];
                 break;
-            case 'm':
-                if (!strncmp(q, "regparm=", 8)) {
-                    arch_regparm = strtoul(q + 8, (char **)&q, 10);
-                    break;
+            case 'o':
+                if (++i >= argc) {
+                    errx(1, "argument to '%s' is missing", p);
                 }
+                outfile = argv[i];
+                break;
+            case 'm':
                 if (!strncmp(q, "restack=", 8)) {
                     inloop_stack = strtoul(q + 8, (char **)&q, 10);
                     break;
@@ -140,9 +149,9 @@ main(int argc, char **argv)
 
     int i = check_args(argc, argv);
 
-    int fd = -1;
-    long sz = 0;
     if (binary) {
+        int fd = -1;
+        long sz = 0;
         fd = open(binary, O_RDONLY);
         if (fd < 0) {
             err(1, "%s", filename);
@@ -153,6 +162,14 @@ main(int argc, char **argv)
         binmap = mmap(NULL, sz, PROT_READ, MAP_SHARED, fd, 0);
         if (binmap == MAP_FAILED) {
             err(1, "%s", filename);
+        }
+        binsz = sz;
+        close(fd);
+
+        if (test_gadgets > 0) {
+            int rv = backend_test_gadgets(test_gadgets - 1);
+            munmap((char *)binmap, binsz);
+            return rv;
         }
     }
 
@@ -168,6 +185,8 @@ main(int argc, char **argv)
         f = stdin;
     }
 
+    new_printer(outfile);
+
     while (fgets(buf, sizeof(buf), f)) {
         struct the_node *n = parse(buf);
         if (n) {
@@ -180,11 +199,12 @@ main(int argc, char **argv)
     free_symbols();
     free_tokens(TRUE);
 
+    new_printer(NULL);
+
     if (filename) {
         fclose(f);
     }
 
-    munmap((char *)binmap, sz);
-    close(fd);
+    munmap((char *)binmap, binsz);
     return 0;
 }

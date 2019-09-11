@@ -57,6 +57,6 @@ void add_extern(const char *import, unsigned long long addr, int attr, int regpa
 void add_label(const char *label, int idx);
 
 const char *get_label_with_label(const char *target);
-void add_label_with_label(const char *label, const char *target);
+void set_label_with_label(const char *label, const char *target);
 
 #endif

@@ -32,7 +32,6 @@ new_token(const char *s, int len)
 }
 
 
-/* : , { } [ ] ( ) = ! + - * & "string" 'string' number id */
 int
 tokenize(const char *s)
 {
@@ -101,6 +100,9 @@ tokenize(const char *s)
             case '+':
             case '-':
             case '*':
+            case '/':
+            case '|':
+            case '^':
             case '&':
             case '@':
                 len = 1;
@@ -211,6 +213,12 @@ eval_token(const char *s)
         type = T_SUB;
     } else if (!strcmp(s, "*")) {
         type = T_MUL;
+    } else if (!strcmp(s, "/")) {
+        type = T_DIV;
+    } else if (!strcmp(s, "|")) {
+        type = T_OR;
+    } else if (!strcmp(s, "^")) {
+        type = T_XOR;
     } else if (!strcmp(s, "&")) {
         type = T_AND;
     } else if (!strcmp(s, "@")) {

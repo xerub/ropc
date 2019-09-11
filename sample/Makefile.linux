@@ -1,0 +1,16 @@
+CFLAGS = -Wall -W -pedantic -O2 -fpie -pie
+LDFLAGS = -z,now
+LDLIBS = -ldl
+
+all: loader-x86 loader-x86_64
+
+loader-x86: loader.c
+	gcc -o $@ -m32 $(CFLAGS) -Wl,$(LDFLAGS) $< $(LDLIBS)
+
+loader-x86_64: loader.c
+	gcc -o $@ -m64 $(CFLAGS) -Wl,$(LDFLAGS) $< $(LDLIBS)
+
+clean:
+
+distclean: clean
+	-$(RM) loader-x86 loader-x86_64

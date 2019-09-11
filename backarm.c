@@ -1,3 +1,4 @@
+//#define GOTO_BY_LDMIA
 #include <assert.h>
 #include <stdarg.h>
 #include <stdint.h>
@@ -29,19 +30,29 @@
 #define LR (1 << 14)
 #define PC (1 << 15)
 
-typedef char *BRICK; // XXX make it elt
+typedef char *BRICK;
 
 enum R_OP {
-    NOP,
+    BAD,
     LABEL,
-    LDR_R4,
     LDR_R0,
     LDR_R0R1,
     LDR_R0TO3,
+    LDR_R4,
+    LDR_R4R5,
+    LDR_R7,
+    LANDING,
     LDR_R0_R0,
+    STR_R0_R4,
+    MOV_R1_R0,
+    MOV_R0_R1,
+    OR_R0_R1,
+    XOR_R0_R1,
+    AND_R0_R1,
     ADD_R0_R1,
     SUB_R0_R1,
     MUL_R0_R1,
+    DIV_R0_R1,
     BLX_R4,
     BLX_R4_1,
     BLX_R4_2,
@@ -49,67 +60,76 @@ enum R_OP {
     BLX_R4_4,
     BLX_R4_5,
     BLX_R4_6,
-    STR_R0_R4,
-    CMP_R0,
-    LDR_R4R5,
+    COMMUTE,
+    SELECT,
+#ifdef GOTO_BY_LDMIA
     LDMIA_R0,
     LDMIA_R0_C,
-    MOV_R1_R0,
-    MOV_R0_R1,
-    ADD_SP,
+#endif
     BX_IMM,
     BX_IMM_1
 };
 
 struct R_OPDEF {
     enum R_OP op;
-    unsigned spill;     // which registers are undefined
-    unsigned output;    // which registers will be loaded from stack
-    unsigned auxout;    // which registers will be loaded from stack as a side-effect
+    unsigned spill;     // which registers are undefined (NB: stack load is not considered spilling)
+    unsigned output;    // which registers will be loaded from stack (NB: set of *all* registers loaded from stack)
+    unsigned auxout;    // which registers will be loaded from stack as a side-effect (NB: subset of [output] registers which are not targeted by this op)
     int incsp;
+    int flags;
     unsigned long long addr;
     const char *text;
 };
 
 
 static struct R_OPDEF optab[] = {
-    { NOP },
-    { LABEL,        /**/ 0xFFFF,      /**/ 0,                          /**/ 0,                    /**/ 0,   0, NULL,                                                                 },
-    { LDR_R4,       /**/ 0,           /**/             R4,             /**/ 0,                    /**/ 0,   0, "POP {R4,PC}",                                                        },
-    { LDR_R0,       /**/ 0,           /**/ R0,                         /**/ 0,                    /**/ 0,   0, "POP {R0,PC}",                                                        },
-    { LDR_R0R1,     /**/ 0,           /**/ R0|R1,                      /**/ 0,                    /**/ 0,   0, "POP {R0-R1,PC}",                                                     },
-    { LDR_R0TO3,    /**/ 0,           /**/ R0|R1|R2|R3,                /**/ 0,                    /**/ 0,   0, "POP {R0-R3,PC}",                                                     },
-    { LDR_R0_R0,    /**/ R0,          /**/                   R7,       /**/                   R7, /**/ 0,   0, "LDR R0, [R0] / POP {R7,PC}",                                         },
-    { ADD_R0_R1,    /**/ R0,          /**/                   R7,       /**/                   R7, /**/ 0,   0, "ADD R0, R1 / POP {R7,PC}",                                           },
-    { SUB_R0_R1,    /**/ R0,          /**/                   R7,       /**/                   R7, /**/ 0,   0, "SUBS R0, R0, R1 / POP {R7,PC}",                                      },
-    { MUL_R0_R1,    /**/ R0,          /**/                   R7,       /**/                   R7, /**/ 0,   0, "MULS R0, R1 / POP {R7,PC}",                                          },
-    { BLX_R4,       /**/ R0|R1|R2|R3, /**/             R4|   R7,       /**/             R4|   R7, /**/ 0,   0, "BLX R4 / POP {R4,R7,PC}",                                            },
-    { BLX_R4_1,     /**/ R0|R1|R2|R3, /**/             R4|   R7,       /**/             R4|   R7, /**/ 1,   0, "BLX R4 / ADD SP, #4 / POP {...PC}",                                  },
-    { BLX_R4_2,     /**/ R0|R1|R2|R3, /**/             R4|   R7,       /**/             R4|   R7, /**/ 2,   0, "BLX R4 / ADD SP, #8 / POP {...PC}",                                  },
-    { BLX_R4_3,     /**/ R0|R1|R2|R3, /**/             R4|   R7,       /**/             R4|   R7, /**/ 3,   0, "BLX R4 / ADD SP, #12 / POP {...PC}",                                 },
-    { BLX_R4_4,     /**/ R0|R1|R2|R3, /**/             R4|   R7,       /**/             R4|   R7, /**/ 4,   0, "BLX R4 / ADD SP, #16 / POP {...PC}",                                 },
-    { BLX_R4_5,     /**/ R0|R1|R2|R3, /**/             R4|   R7,       /**/             R4|   R7, /**/ 5,   0, "BLX R4 / ADD SP, #20 / POP {...PC}",                                 },
-    { BLX_R4_6,     /**/ R0|R1|R2|R3, /**/             R4|   R7,       /**/             R4|   R7, /**/ 6,   0, "BLX R4 / ADD SP, #24 / POP {...PC}",                                 },
-    { STR_R0_R4,    /**/ 0,           /**/             R4|   R7,       /**/             R4|   R7, /**/ 0,   0, "STR R0, [R4] / POP {R4,R7,PC}",                                      },
-    { CMP_R0,       /**/ R0,          /**/             R4|R5|R7,       /**/             R4|R5|R7, /**/ 0,   0, "CMP R0, #0 / IT EQ / MOVEQ R4, R5 / MOV R0, R4 / POP {R4,R5,R7,PC}", },    // (R0 = R0 ? R4 : R5)
-    { LDR_R4R5,     /**/ 0,           /**/             R4|R5,          /**/ 0,                    /**/ 0,   0, "POP {R4,R5,PC}",                                                     },
-    { LDMIA_R0,     /**/ 0,           /**/ R0|         R4|      SP|PC, /**/ R0|         R4,       /**/ 0,   0, "LDMIA R0, {...SP...PC}",                                             },
-    { LDMIA_R0_C,   /**/ 0,           /**/ R0|         R4|      SP|PC, /**/ R0|         R4,       /**/ 0,   0, "LDMIA R0, {...SP...PC}",                                             },
-    { MOV_R1_R0,    /**/    R1,       /**/             R4|   R7,       /**/             R4|   R7, /**/ 0,   0, "MOV R1, R0 / POP {...PC}",                                           },
-    { MOV_R0_R1,    /**/ R0,          /**/                   R7,       /**/                   R7, /**/ 0,   0, "MOV R0, R1 / POP {R7,PC}",                                           },
-    { ADD_SP,       /**/ R7,          /**/                   R7,       /**/                   R7, /**/ 256, 0, "ADD SP, #? / POP {R7,PC}",                                           },    // XXX no R0-R4 allowed
-    { BX_IMM,       /**/ 0xFFFF,      /**/ 0,                          /**/ 0,                    /**/ 0,   0, NULL,                                                                 },
-    { BX_IMM_1,     /**/ 0xFFFF,      /**/ 0,                          /**/ 0,                    /**/ 1,   0, NULL,                                                                 },
+    { BAD,          /**/ 0,           /**/ 0,                          /**/ 0,                    /**/  0, 0, 0, NULL },
+    { LABEL,        /**/ 0,           /**/ 0,                          /**/ 0,                    /**/  0, 0, 0, NULL },
+    { LDR_R0,       /**/ 0,           /**/ R0,                         /**/ 0,                    /**/  0, 0, 0, "POP {R0,PC}" },
+    { LDR_R0R1,     /**/ 0,           /**/ R0|R1,                      /**/ 0,                    /**/  0, 0, 0, "POP {R0-R1,PC}" },
+    { LDR_R0TO3,    /**/ 0,           /**/ R0|R1|R2|R3,                /**/ 0,                    /**/  0, 0, 0, "POP {R0-R3,PC}" },
+    { LDR_R4,       /**/ 0,           /**/             R4,             /**/ 0,                    /**/  0, 0, 0, "POP {R4,PC}" },
+    { LDR_R4R5,     /**/ 0,           /**/             R4|R5,          /**/ 0,                    /**/  0, 0, 0, "POP {R4,R5,PC}" },
+    { LDR_R7,       /**/ 0,           /**/                   R7,       /**/ 0,                    /**/  0, 0, 0, "POP {R7,PC}" },
+    { LANDING,      /**/ 0,           /**/                   R7,       /**/                   R7, /**/  0, 0, 0, "POP {R7,PC}" },
+    { LDR_R0_R0,    /**/ R0,          /**/                   R7,       /**/                   R7, /**/  0, 0, 0, "LDR R0, [R0] / POP {R7,PC}" },
+    { STR_R0_R4,    /**/ 0,           /**/             R4|   R7,       /**/             R4|   R7, /**/  0, 0, 0, "STR R0, [R4] / POP {R4,R7,PC}" },
+    { MOV_R1_R0,    /**/    R1,       /**/             R4|   R7,       /**/             R4|   R7, /**/  0, 0, 0, "MOV R1, R0 / POP {R4,R7,PC}" },
+    { MOV_R0_R1,    /**/ R0,          /**/                   R7,       /**/                   R7, /**/  0, 0, 0, "MOV R0, R1 / POP {R7,PC}" },
+    { OR_R0_R1,     /**/ R0,          /**/                   R7,       /**/                   R7, /**/  0, 0, 0, "ORRS R0, R1 / POP {R7,PC}" },
+    { XOR_R0_R1,    /**/ R0,          /**/                   R7,       /**/                   R7, /**/  0, 0, 0, "EORS R0, R1 / POP {R7,PC}" },
+    { AND_R0_R1,    /**/ R0,          /**/                   R7,       /**/                   R7, /**/  0, 0, 0, "ANDS R0, R1 / POP {R7,PC}" },
+    { ADD_R0_R1,    /**/ R0,          /**/                   R7,       /**/                   R7, /**/  0, 0, 0, "ADD R0, R1 / POP {R7,PC}" },
+    { SUB_R0_R1,    /**/ R0,          /**/                   R7,       /**/                   R7, /**/  0, 0, 0, "SUBS R0, R0, R1 / POP {R7,PC}" },
+    { MUL_R0_R1,    /**/ R0,          /**/                   R7,       /**/                   R7, /**/  0, 0, 0, "MULS R0, R1 / POP {R7,PC}" },
+    { DIV_R0_R1,    /**/ R0,          /**/             R4|   R7,       /**/             R4|   R7, /**/  0, 0, 0, "UDIV R0, R0, R1 / POP {R4,R7,PC}" },
+    { BLX_R4,       /**/ R0|R1|R2|R3, /**/             R4|   R7,       /**/             R4|   R7, /**/  0, 0, 0, "BLX R4 / POP {R4,R7,PC}" },
+    { BLX_R4_1,     /**/ R0|R1|R2|R3, /**/             R4|   R7,       /**/             R4|   R7, /**/  1, 0, 0, "BLX R4 / ADD SP, #4 / POP {R4,R7,PC}" },
+    { BLX_R4_2,     /**/ R0|R1|R2|R3, /**/             R4|   R7,       /**/             R4|   R7, /**/  2, 0, 0, "BLX R4 / ADD SP, #8 / POP {R4,R7,PC}" },
+    { BLX_R4_3,     /**/ R0|R1|R2|R3, /**/             R4|   R7,       /**/             R4|   R7, /**/  3, 0, 0, "BLX R4 / ADD SP, #12 / POP {R4,R7,PC}" },
+    { BLX_R4_4,     /**/ R0|R1|R2|R3, /**/             R4|   R7,       /**/             R4|   R7, /**/  4, 0, 0, "BLX R4 / ADD SP, #16 / POP {R4,R7,PC}" },
+    { BLX_R4_5,     /**/ R0|R1|R2|R3, /**/             R4|   R7,       /**/             R4|   R7, /**/  5, 0, 0, "BLX R4 / ADD SP, #20 / POP {R4,R7,PC}" },
+    { BLX_R4_6,     /**/ R0|R1|R2|R3, /**/             R4|   R7,       /**/             R4|   R7, /**/  6, 0, 0, "BLX R4 / ADD SP, #24 / POP {R4,R7,PC}" },
+    { COMMUTE,      /**/ 0,           /**/                   R7,       /**/                   R7, /**/  0, 0, 0, "MOV SP, R7 / POP {R7,PC}" },
+    { SELECT,       /**/ R0,          /**/             R4|R5|R7,       /**/             R4|R5|R7, /**/  0, 0, 0, "CMP R0, #0 / IT EQ / MOVEQ R4, R5 / MOV R0, R4 / POP {R4,R5,R7,PC}" }, // (R0 = R0 ? R4 : R5)
+#ifdef GOTO_BY_LDMIA
+    { LDMIA_R0,     /**/ 0,           /**/ R0|         R4|      SP|PC, /**/ R0|         R4,       /**/  0, 0, 0, "LDMIA R0, {R0,R4,SP,PC}" },
+    { LDMIA_R0_C,   /**/ 0,           /**/ R0|         R4|      SP|PC, /**/ R0|         R4,       /**/  0, 0, 0, "LDMIA R0, {R0,R4,SP,PC}" },
+#endif
+    { BX_IMM,       /**/ 0xFFFFFFFF,  /**/ 0,                          /**/ 0,                    /**/  0, 0, 0, NULL },
+    { BX_IMM_1,     /**/ 0xFFFFFFFF,  /**/ 0,                          /**/ 0,                    /**/  1, 0, 0, NULL },
 };
 
 
 static int idx = 0;
 static BRICK strip[10240];
 
-static unsigned dirty = 0xFFFF;
-static int pointer[16] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+static unsigned dirty = 0xFFFFFFFF;
+static int pointer[32] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 
-struct range *ranges = NULL;
+static struct range *ranges = NULL;
+
+const int arch_regparm = 4;
 
 
 static uint64_t
@@ -129,197 +149,475 @@ solve_import(const char *p)
 }
 
 
-static int
-solve_MOV_Rx_R0(const unsigned char *p, uint32_t size, va_list ap, uint64_t addr, void *user)
-{
-    uint64_t pp[1];
-    int rv = is_MOV_Rx_R0(p, size, ap, addr, pp);
-    if (rv && user) {
-        const unsigned char *ptr = (unsigned char *)(uintptr_t)pp[0];
-        assert(rv & 1);
-        if (rv < 0) {
-            int reg = popcount(*ptr);
-            int min_reg = ((uint64_t *)user)[2];
-            if (min_reg <= reg) {
-                return rv;
-            }
-            ((uint64_t *)user)[2] = reg;
-        }
-        ((uint64_t *)user)[0] = *ptr;
-        ((uint64_t *)user)[1] = addr + (rv & 1);
-    }
-    return rv;
-}
-
-
-static int
-solve_ADD_SP(const unsigned char *p, uint32_t size, va_list ap, uint64_t addr, void *user)
-{
-    uint64_t pp[2];
-    int rv = is_ADD_SP(p, size, ap, addr, pp);
-    if (rv && user) {
-        const unsigned char *ptr = (unsigned char *)(uintptr_t)pp[0];
-        assert(rv & 1);
-        if (rv < 0) {
-            int adj = pp[1];
-            int min_adj = ((uint64_t *)user)[3];
-            if (min_adj <= adj) {
-                return rv;
-            }
-            ((uint64_t *)user)[3] = adj;
-        }
-        ((uint64_t *)user)[0] = *ptr;
-        ((uint64_t *)user)[1] = addr + (rv & 1);
-        ((uint64_t *)user)[2] = pp[1];
-    }
-    return rv;
-}
-
-
-static int
-solve_BLX_R4_SP(const unsigned char *p, uint32_t size, va_list ap, uint64_t addr, void *user)
-{
-    uint64_t pp[1];
-    int rv = is_BLX_R4_SP(p, size, ap, addr, pp);
-    if (rv && user) {
-        const unsigned char *ptr = (unsigned char *)(uintptr_t)pp[0];
-        assert(rv & 1);
-        if (rv < 0) {
-            int reg = popcount(*ptr);
-            int min_reg = ((uint64_t *)user)[2];
-            if (min_reg <= reg) {
-                return rv;
-            }
-            ((uint64_t *)user)[2] = reg;
-        }
-        ((uint64_t *)user)[0] = *ptr;
-        ((uint64_t *)user)[1] = addr + (rv & 1);
-    }
-    return rv;
-}
-
-
-// XXX fixme
 static void
-solve_op(enum R_OP op)
+build_pop_pc_string(char *text, unsigned pops)
+{
+    unsigned j, n = 0;
+    text[n++] = '{';
+    for (j = 0; j < 15; j++) {
+        if (pops & (1 << j)) {
+            if (j == 13) {
+                text[n++] = 'S';
+                text[n++] = 'P';
+            } else if (j == 14) {
+                text[n++] = 'L';
+                text[n++] = 'R';
+            } else if (j > 9) {
+                text[n++] = 'R';
+                text[n++] = '1';
+                text[n++] = j + '0' - 10;
+            } else {
+                text[n++] = 'R';
+                text[n++] = j + '0';
+            }
+            text[n++] = ',';
+            text[n] = '\0';
+        }
+    }
+    strcpy(text + n, "PC}");
+}
+
+
+static int
+solve_mov_rr_01(const unsigned char *p, uint32_t size, uint64_t addr, void *user)
+{
+    static char text[256];
+    struct R_OPDEF *r = (struct R_OPDEF *)user;
+    unsigned pops = p[2];
+    if (pops & (R0 | R1)) {
+        return -1;
+    }
+    r->output = pops;
+    r->auxout = pops;
+    r->text = text;
+    build_pop_pc_string(text + sprintf(text, "MOV R%d, R%d / POP ", p[0] & 7, (p[0] >> 3) & 7), pops);
+    return 0;
+}
+
+
+static int
+_is_popw(const unsigned char *buf, int nregs)
+{
+    // LDR.W R?,[SP],#4
+    if (nregs == 1 && buf[0] == 0x5d && buf[1] == 0xf8 && buf[2] == 0x04 && (buf[3] & 0xF) == 0xb) {
+        return 1;
+    }
+    // POP.W {...}
+    return (buf[0] == 0xbd && buf[1] == 0xe8 && buf[2] == 0x00 && popcount(buf[3]) == nregs);
+}
+
+
+static int
+solve_call_sp(const unsigned char *p, uint32_t size, uint64_t addr, void *user)
+{
+    static char text[256];
+    struct R_OPDEF *r = (struct R_OPDEF *)user;
+    unsigned incsp = r->op - BLX_R4;
+    unsigned words = p[2];
+    unsigned pops;
+
+    while (1) {
+        p += 4;
+        if (words == incsp && (p[0] & R6) == 0 && p[1] == 0xBD) {
+            break;
+        }
+        if (words >= incsp) {
+            return -1;
+        }
+        pops = _is_popw(p, incsp - words);
+        if (!pops) {
+            return -1;
+        }
+        words += pops;
+    }
+
+    pops = p[0];
+    r->output = pops;
+    r->auxout = pops;
+    r->incsp = incsp;
+    r->text = text;
+    build_pop_pc_string(text + sprintf(text, "BLX R4 / ADD SP, #%u / POP ", incsp * 4), pops);
+    return 0;
+}
+
+
+#ifdef GOTO_BY_LDMIA
+/*
+FF FF 96 E9 <- 8 == LDMIA, 9 = LDMIB
+   ^  ^^ ^
+   |  || +---- cond (0xE == always)
+   |  |+------ source register
+   |  +------- 1, 3, 5^, 7^, 9, B, D^, F^
+   +---------- & 0xA == 0xA (SP+PC)
+*/
+static int
+solve_ldmia(const unsigned char *p, uint32_t size, uint64_t addr, void *user)
+{
+    static char text[256];
+    struct R_OPDEF *r = (struct R_OPDEF *)user;
+    if ((p[1] & 0xA0) == 0xA0 &&
+        (p[2] & 0x10) == 0x10 && (p[2] & 0x50) != 0x50 &&
+        (p[3] & 0xE) == 0x8 && (p[3] & 0xF0) != 0xF0) {
+        int pops = ((unsigned short *)p)[0];
+        if (r->addr) {
+            if (p[1] & 0x40) {
+                return -1; // pops {SP,LR,PC}, not sure this is allowed
+            }
+            if (optimize_reg && popcount(pops & (R0 | R4)) < popcount(r->output & (R0 | R4))) {
+                return -1; // fewer desired registers, keep the old one
+            }
+            if (popcount(pops) > popcount(r->output)) {
+                return -1; // more registers, keep the old one
+            }
+        }
+        r->addr = addr;
+        r->output = pops;
+        r->auxout = pops & ~(SP | PC);
+        r->text = text;
+        build_pop_pc_string(text + sprintf(text, "LDMIA R%d, ", p[2] & 0xF), pops);
+    }
+    return -1;
+}
+
+/*
+94 E8 FF FF
+^^ ^     ^
+|| |     +---- & 0xA == 0xA (SP+PC)
+|| +---------- E8 == LDMIA, E9 = LDMIB (!only opcode E8 was tested!)
+|+------------ source register
++------------- 1, 3, 5^, 7^, 9, B, D^, F^ (!only opcode 9 was tested!)
+*/
+static int
+solve_ldmiaw(const unsigned char *p, uint32_t size, uint64_t addr, void *user)
+{
+    static char text[256];
+    struct R_OPDEF *r = (struct R_OPDEF *)user;
+    if ((p[3] & 0xA0) == 0xA0 &&
+        (p[0] & 0x10) == 0x10 && (p[0] & 0x50) != 0x50 &&
+        (p[1] == 0xE8)) {
+        int pops = ((unsigned short *)p)[1];
+        if (r->addr) {
+            if (p[1] & 0x40) {
+                return -1; // pops {SP,LR,PC}, not sure this is allowed
+            }
+            if (optimize_reg && popcount(pops & (R0 | R4)) < popcount(r->output & (R0 | R4))) {
+                return -1; // fewer desired registers, keep the old one
+            }
+            if (popcount(pops) > popcount(r->output)) {
+                return -1; // more registers, keep the old one
+            }
+        }
+        r->addr = addr;
+        r->output = pops;
+        r->auxout = pops & ~(SP | PC);
+        r->text = text;
+        build_pop_pc_string(text + sprintf(text, "LDMIA.W R%d, ", p[0] & 0xF), pops);
+    }
+    return -1;
+}
+#endif
+
+
+static struct R_OPDEF *
+try_solve_op(enum R_OP op)
 {
     uint64_t rv = 0;
     struct R_OPDEF *r = &optab[op];
     if (r->addr) {
-        return;
+        return r;
     }
     if (!binmap) {
         r->addr = 0xFF000000 + op;
-        return;
+        return r;
     }
     if (!ranges) {
-        ranges = parse_ranges(binmap);
+        ranges = parse_ranges(binmap, binsz);
     }
     switch (op) {
-        case NOP:
+        case BAD:
         case LABEL:
         case BX_IMM:
         case BX_IMM_1:
-            return;
-        case LDR_R4:
-            rv = parse_gadgets(ranges, binmap, NULL, is_LOAD_R4);
-            break;
+            return NULL;
         case LDR_R0:
-            rv = parse_gadgets(ranges, binmap, NULL, is_LOAD_R0);
+            rv = parse_string(ranges, binmap, NULL, NULL, "- 01 BD");
+            if (rv) {
+                rv++;
+                break;
+            }
             break;
         case LDR_R0R1:
-            rv = parse_gadgets(ranges, binmap, NULL, is_LOAD_R0R1);
+            rv = parse_string(ranges, binmap, NULL, NULL, "- 03 BD");
+            if (rv) {
+                rv++;
+                break;
+            }
             break;
         case LDR_R0TO3:
-            rv = parse_gadgets(ranges, binmap, NULL, is_LOAD_R0R3);
-            break;
-        case LDR_R0_R0:
-            rv = parse_gadgets(ranges, binmap, NULL, is_LDR_R0_R0);
-            break;
-        case ADD_R0_R1:
-            rv = parse_gadgets(ranges, binmap, NULL, is_ADD_R0_R1);
-            break;
-        case SUB_R0_R1:
-            rv = parse_gadgets(ranges, binmap, NULL, is_SUB_R0_R1);
-            break;
-        case MUL_R0_R1:
-            rv = parse_gadgets(ranges, binmap, NULL, is_MUL_R0_R1);
-            break;
-        case MOV_R1_R0: {
-            uint64_t pp[3] = { 0, 0, 8 + 1 };
-            rv = parse_gadgets(ranges, binmap, pp, solve_MOV_Rx_R0, 1);
-            if (pp[1]) {
-                rv = pp[1];
-                r->output = pp[0];
-                r->auxout = r->output;
+            rv = parse_string(ranges, binmap, NULL, NULL, "- 0F BD");
+            if (rv) {
+                rv++;
+                break;
             }
+            rv = parse_string(ranges, binmap, NULL, NULL, "+ 0F 80 BD E8");
             break;
-        }
-        case MOV_R0_R1:
-            rv = parse_gadgets(ranges, binmap, NULL, is_MOV_R0_Rx, 1);
-            break;
-        case ADD_SP: {
-            uint64_t pp[4] = { 0, 0, 0, 65536 };
-            rv = parse_gadgets(ranges, binmap, pp, solve_ADD_SP, inloop_stack);
-            if (pp[1]) {
-                rv = pp[1];
-                r->output = pp[0];
-                r->auxout = r->output;
-                r->spill = r->output;
-                r->incsp = pp[2];
+        case LDR_R4:
+            rv = parse_string(ranges, binmap, NULL, NULL, "- 10 BD");
+            if (rv) {
+                rv++;
+                break;
             }
-            break;
-        }
-        case BLX_R4:
-            rv = parse_gadgets(ranges, binmap, NULL, is_BLX_R4);
-            break;
-        case BLX_R4_1:
-        case BLX_R4_2:
-        case BLX_R4_3:
-        case BLX_R4_4:
-        case BLX_R4_5:
-        case BLX_R4_6: {
-            uint64_t pp[3] = { 0, 0, 8 + 1 };
-            rv = parse_gadgets(ranges, binmap, pp, solve_BLX_R4_SP, r->incsp);
-            if (pp[1]) {
-                rv = pp[1];
-                r->output = pp[0];
-                r->auxout = r->output;
-            }
-            break;
-        }
-        case STR_R0_R4:
-            rv = parse_gadgets(ranges, binmap, NULL, is_STR_R0_R4);
-            break;
-        case CMP_R0:
-            rv = parse_gadgets(ranges, binmap, NULL, is_COMPARE);
             break;
         case LDR_R4R5:
-            rv = parse_gadgets(ranges, binmap, NULL, is_LOAD_R4R5);
-            break;
-        case LDMIA_R0:
-        case LDMIA_R0_C: {
-            uint64_t pp[1];
-            rv = parse_gadgets(ranges, binmap, pp, is_ldmia, 0, -1, R0|R4);
+            rv = parse_string(ranges, binmap, NULL, NULL, "- 30 BD");
             if (rv) {
-                const unsigned char *ptr = (unsigned char *)(uintptr_t)pp[0];
-                r->output = (ptr[1] << 8) | ptr[0];
-                r->auxout = r->output & ~(SP|PC);
-            } else {
-                rv = parse_gadgets(ranges, binmap, pp, is_ldmiaw, 0, -1, 0);
-                if (rv) {
-                    const unsigned char *ptr = (unsigned char *)(uintptr_t)pp[0];
-                    r->output = (ptr[3] << 8) | ptr[2];
-                    r->auxout = r->output & ~(SP|PC);
-                }
+                rv++;
+                break;
+            }
+            break;
+        case LDR_R7:
+        case LANDING:
+            rv = parse_string(ranges, binmap, NULL, NULL, "- 80 BD");
+            if (rv) {
+                rv++;
+                break;
+            }
+            rv = parse_string(ranges, binmap, NULL, NULL, "- BD E8 80 80");
+            if (rv) {
+                rv++;
+                break;
+            }
+            rv = parse_string(ranges, binmap, NULL, NULL, "- 80 BC 5D F8 04 EB 70 47");
+            if (rv) {
+                rv++;
+                break;
+            }
+            rv = parse_string(ranges, binmap, NULL, NULL, "+ 80 80 BD E8");
+            break;
+        case LDR_R0_R0:
+            rv = parse_string(ranges, binmap, NULL, NULL, "- 00 68 80 BD");
+            if (rv) {
+                rv++;
+                break;
+            }
+            break;
+        case STR_R0_R4:
+            rv = parse_string(ranges, binmap, NULL, NULL, "- 20 60 90 BD");
+            if (rv) {
+                rv++;
+                break;
+            }
+            break;
+        case MOV_R1_R0: {
+            static char text[256];
+            rv = parse_string(ranges, binmap, NULL, NULL, "- 01 46 90 BD");
+            if (rv) {
+                rv++;
+                break;
+            }
+            rv = parse_string(ranges, binmap, NULL, NULL, "- 01 46 08 46 80 BD");
+            if (rv) {
+                rv++;
+                r->output = R7;
+                r->auxout = R7;
+                break;
+            }
+            rv = parse_string(ranges, binmap, r, solve_mov_rr_01, "- 01 46 .. BD");
+            if (rv) {
+                r->text = strcpy(text, r->text);
+                rv++;
+                break;
             }
             break;
         }
-    }
-    if (!rv) {
-        die("undefined gadget '%s'\n", r->text);
+        case MOV_R0_R1: {
+            static char text[256];
+            rv = parse_string(ranges, binmap, NULL, NULL, "- 08 46 80 BD");
+            if (rv) {
+                rv++;
+                break;
+            }
+            rv = parse_string(ranges, binmap, r, solve_mov_rr_01, "- 08 46 .. BD");
+            if (rv) {
+                r->text = strcpy(text, r->text);
+                rv++;
+                break;
+            }
+            break;
+        }
+        case OR_R0_R1:
+            rv = parse_string(ranges, binmap, NULL, NULL, "- 08 43 80 BD");
+            if (rv) {
+                rv++;
+                break;
+            }
+            break;
+        case XOR_R0_R1:
+            rv = parse_string(ranges, binmap, NULL, NULL, "- 48 40 80 BD");
+            if (rv) {
+                rv++;
+                break;
+            }
+            break;
+        case AND_R0_R1:
+            rv = parse_string(ranges, binmap, NULL, NULL, "- 08 40 80 BD");
+            if (rv) {
+                rv++;
+                break;
+            }
+            break;
+        case ADD_R0_R1:
+            rv = parse_string(ranges, binmap, NULL, NULL, "- 08 44 80 BD");
+            if (rv) {
+                rv++;
+                break;
+            }
+            break;
+        case SUB_R0_R1:
+            rv = parse_string(ranges, binmap, NULL, NULL, "- 40 1A 80 BD");
+            if (rv) {
+                rv++;
+                break;
+            }
+            break;
+        case MUL_R0_R1:
+            rv = parse_string(ranges, binmap, NULL, NULL, "- 48 43 80 BD");
+            if (rv) {
+                rv++;
+                break;
+            }
+            break;
+        case DIV_R0_R1:
+            rv = parse_string(ranges, binmap, NULL, NULL, "- B0 FB F1 F0 90 BD");
+            if (rv) {
+                rv++;
+                break;
+            }
+            rv = parse_string(ranges, binmap, NULL, NULL, "- B0 FB F1 F0 B0 BD");
+            if (rv) {
+                r->output = R4 | R5 | R7;
+                r->auxout = R4 | R5 | R7;
+                r->text = "UDIV R0, R0, R1 / POP {R4,R5,R7,PC}";
+                rv++;
+                break;
+            }
+            break;
+        case BLX_R4:
+            rv = parse_string(ranges, binmap, NULL, NULL, "- A0 47 90 BD");
+            if (rv) {
+                rv++;
+                break;
+            }
+            break;
+        case BLX_R4_1: {
+            static char text[256];
+            rv = parse_string(ranges, binmap, r, solve_call_sp, "- A0 47 .. B0");
+            if (rv) {
+                r->text = strcpy(text, r->text);
+                rv++;
+                break;
+            }
+        }
+        case BLX_R4_2: {
+            static char text[256];
+            rv = parse_string(ranges, binmap, r, solve_call_sp, "- A0 47 .. B0");
+            if (rv) {
+                r->text = strcpy(text, r->text);
+                rv++;
+                break;
+            }
+        }
+        case BLX_R4_3: {
+            static char text[256];
+            rv = parse_string(ranges, binmap, r, solve_call_sp, "- A0 47 .. B0");
+            if (rv) {
+                r->text = strcpy(text, r->text);
+                rv++;
+                break;
+            }
+        }
+        case BLX_R4_4: {
+            static char text[256];
+            rv = parse_string(ranges, binmap, r, solve_call_sp, "- A0 47 .. B0");
+            if (rv) {
+                r->text = strcpy(text, r->text);
+                rv++;
+                break;
+            }
+        }
+        case BLX_R4_5: {
+            static char text[256];
+            rv = parse_string(ranges, binmap, r, solve_call_sp, "- A0 47 .. B0");
+            if (rv) {
+                r->text = strcpy(text, r->text);
+                rv++;
+                break;
+            }
+        }
+        case BLX_R4_6: {
+            static char text[256];
+            rv = parse_string(ranges, binmap, r, solve_call_sp, "- A0 47 .. B0");
+            if (rv) {
+                r->text = strcpy(text, r->text);
+                rv++;
+                break;
+            }
+            break;
+        }
+        case COMMUTE:
+            rv = parse_string(ranges, binmap, NULL, NULL, "- BD 46 80 BD");
+            if (rv) {
+                rv++;
+                break;
+            }
+            rv = parse_string(ranges, binmap, NULL, NULL, "- BD 46 BD E8 80 80");
+            if (rv) {
+                rv++;
+                break;
+            }
+            rv = parse_string(ranges, binmap, NULL, NULL, "- BD 46 80 BC 5D F8 04 EB 70 47");
+            if (rv) {
+                rv++;
+                break;
+            }
+            rv = parse_string(ranges, binmap, NULL, NULL, "+ 07 D0 A0 E1 80 80 BD E8");
+            break;
+        case SELECT:
+            rv = parse_string(ranges, binmap, NULL, NULL, "- 00 28 08 BF 2C 46 20 46 B0 BD");
+            if (rv) {
+                rv++;
+                break;
+            }
+            break;
+#ifdef GOTO_BY_LDMIA
+        case LDMIA_R0:
+        case LDMIA_R0_C: {
+            parse_string(ranges, binmap, r, solve_ldmia, "+ .. .. 90 E8");
+            if (r->addr) {
+                rv = r->addr;
+                break;
+            }
+            parse_string(ranges, binmap, r, solve_ldmiaw, "- 90 E8 .. ..");
+            if (r->addr) {
+                rv = r->addr + 1;
+                break;
+            }
+            break;
+        }
+#endif
     }
     r->addr = rv;
+    return r;
+}
+
+
+static void
+solve_op(enum R_OP op)
+{
+    struct R_OPDEF *r = try_solve_op(op);
+    if (r && !r->addr) {
+        die("undefined gadget '%s'\n", r->text);
+    }
 }
 
 
@@ -346,8 +644,15 @@ make1(enum R_OP op, ...)
     assert(idx < 10000);
     solve_op(op);
     switch (op) {
+        case LABEL:
+            strip[idx++] = (BRICK)op;
+            strip[idx++] = argdup(va_arg(ap, char *));
+            spill = va_arg(ap, unsigned);
+            strip[idx++] = (BRICK)(unsigned long)spill;
+            add_label(strip[idx - 2], idx - 3);
+            break;
         case LDR_R0:
-            if (optimize_reg && pointer[0]) { // XXX && !dirty(0)
+            if (optimize_reg && pointer[0]) {
                 strip[pointer[0]] = argdup(va_arg(ap, char *));
                 pointer[0] = 0;
                 goto done;
@@ -355,7 +660,7 @@ make1(enum R_OP op, ...)
             strip[idx++] = (BRICK)op;
             break;
         case LDR_R0R1:
-            if (optimize_reg && pointer[0] && pointer[1]) { // XXX && !dirty(0) && !dirty(1)
+            if (optimize_reg && pointer[0] && pointer[1]) {
                 strip[pointer[0]] = argdup(va_arg(ap, char *));
                 strip[pointer[1]] = argdup(va_arg(ap, char *));
                 pointer[0] = 0;
@@ -364,21 +669,8 @@ make1(enum R_OP op, ...)
             }
             strip[idx++] = (BRICK)op;
             break;
-        case LDR_R0TO3:
-            strip[idx++] = (BRICK)op;
-            break;
-        case LDR_R0_R0:
-            strip[idx++] = (BRICK)op;
-            break;
-        case ADD_R0_R1:
-        case SUB_R0_R1:
-        case MUL_R0_R1:
-        case MOV_R1_R0:
-        case MOV_R0_R1:
-            strip[idx++] = (BRICK)op;
-            break;
         case LDR_R4:
-            if (optimize_reg && pointer[4]) { // XXX && !dirty(4)
+            if (optimize_reg && pointer[4]) {
                 strip[pointer[4]] = argdup(va_arg(ap, char *));
                 pointer[4] = 0;
                 goto done;
@@ -386,7 +678,7 @@ make1(enum R_OP op, ...)
             strip[idx++] = (BRICK)op;
             break;
         case LDR_R4R5:
-            if (optimize_reg && pointer[4] && pointer[5]) { // XXX && !dirty(4) && !dirty(5)
+            if (optimize_reg && pointer[4] && pointer[5]) {
                 strip[pointer[4]] = argdup(va_arg(ap, char *));
                 strip[pointer[5]] = argdup(va_arg(ap, char *));
                 pointer[4] = 0;
@@ -395,21 +687,30 @@ make1(enum R_OP op, ...)
             }
             strip[idx++] = (BRICK)op;
             break;
-        case ADD_SP:
-            strip[idx++] = (BRICK)op;
-            strip[idx++] = (BRICK)(long)va_arg(ap, int);
-            break;
-        case BX_IMM:
-        case BX_IMM_1: {
-            char *func = argdup(va_arg(ap, char *));
-            char **args = va_arg(ap, char **);
-            strip[idx++] = (BRICK)op;
-            strip[idx++] = func;
-            for (i = 0; i < r->incsp; i++) {
-                strip[idx++] = argdup(args[i]);
+        case LDR_R7:
+            if (optimize_reg && pointer[7]) {
+                strip[pointer[7]] = argdup(va_arg(ap, char *));
+                pointer[7] = 0;
+                goto done;
             }
+            strip[idx++] = (BRICK)op;
             break;
-        }
+        case LDR_R0TO3:
+        case LANDING:
+        case LDR_R0_R0:
+        case STR_R0_R4:
+        case MOV_R1_R0:
+        case MOV_R0_R1:
+        case OR_R0_R1:
+        case XOR_R0_R1:
+        case AND_R0_R1:
+        case ADD_R0_R1:
+        case SUB_R0_R1:
+        case MUL_R0_R1:
+        case DIV_R0_R1:
+        case SELECT:
+            strip[idx++] = (BRICK)op;
+            break;
         case BLX_R4:
         case BLX_R4_1:
         case BLX_R4_2:
@@ -424,43 +725,34 @@ make1(enum R_OP op, ...)
             }
             break;
         }
-        case STR_R0_R4:
+        case COMMUTE:
             strip[idx++] = (BRICK)op;
+            strip[idx++] = (BRICK)(long)va_arg(ap, int);
             break;
-        case LABEL:
-            strip[idx++] = (BRICK)op;
-            strip[idx++] = argdup(va_arg(ap, char *));
-            spill = va_arg(ap, unsigned);
-            strip[idx++] = (BRICK)(unsigned long)spill;
-            break;
-        case CMP_R0:
-            strip[idx++] = (BRICK)op;
-            break;
+#ifdef GOTO_BY_LDMIA
         case LDMIA_R0:
-            strip[idx++] = (BRICK)op;
-            strip[idx++] = argdup(va_arg(ap, char *));
-            break;
         case LDMIA_R0_C:
             strip[idx++] = (BRICK)op;
-            strip[idx++] = argdup(va_arg(ap, char *));
-            for (i = 0; i < 16; i++) {
-                if (r->output & (1 << i)) {
-                    if (r->auxout & (1 << i)) {
-                        strip[idx] = NULL;
-                    } else {
-                        strip[idx] = argdup(va_arg(ap, char *));
-                    }
-                    idx++;
-                }
-            }
-            strip[idx++] = argdup(va_arg(ap, char *));
+            strip[idx++] = (BRICK)(long)va_arg(ap, int);
             break;
+#endif
+        case BX_IMM:
+        case BX_IMM_1: {
+            char *func = argdup(va_arg(ap, char *));
+            char **args = va_arg(ap, char **);
+            strip[idx++] = (BRICK)op;
+            strip[idx++] = func;
+            for (i = 0; i < r->incsp; i++) {
+                strip[idx++] = argdup(args[i]);
+            }
+            break;
+        }
         default:
             assert(0);
     }
     dirty &= ~r->output;
     dirty |= spill;
-    for (i = 0; i < 16; i++) {
+    for (i = 0; i < 32; i++) {
         if (r->output & (1 << i)) {
             if (r->auxout & (1 << i)) {
                 pointer[i] = idx;
@@ -486,12 +778,13 @@ play_data(const char *arg, int i, int ch)
 {
     if (arg) {
         const struct SYM *p;
+#ifdef GOTO_BY_LDMIA
         if (i == 13) {
             p = get_symbol(arg);
             if (!p || p->type != SYMBOL_LABEL) {
                 die("cannot find label '%s'\n", arg);
             }
-            printf("        du    4 + %-26s; -> SP\n", arg);
+            printx("        du    4 + %-26s; -> SP\n", arg);
             return;
         }
         if (i == 15) {
@@ -506,37 +799,41 @@ play_data(const char *arg, int i, int ch)
                 assert(k < idx);
                 j = (int)(long)strip[k];
             } while (j == LABEL);
-            printf("        dg    0x%-28llX; -> PC: %s\n", optab[j].addr, optab[j].text);
-            return;
+            if (j < BX_IMM) {
+                printx("        dg    0x%-28llX; -> PC: %s\n", optab[j].addr, optab[j].text);
+                return;
+            }
+            arg = strip[k + 1];
         }
+#endif
         if (is_address(arg)) {
             char *na = curate_address(arg);
-            printf("        du    %-30s; -> %c%d\n", na, ch, i);
+            printx("        du    %-30s; -> %c%d\n", na, ch, i);
             free(na);
             return;
         }
         p = get_symbol(arg);
         if (p) {
             if (p->type == SYMBOL_EXTERN) {
-                printf("        dg    0x%-28llX; -> %c%d: %s\n", p->addr, ch, i, arg);
+                printx("        dg    0x%-28llX; -> %c%d: %s\n", p->addr, ch, i, arg);
             } else if (p->type == SYMBOL_LABEL) {
-                printf("        du    %-30s; -> %c%d\n", p->key, ch, i);
+                printx("        du    %-30s; -> %c%d\n", p->key, ch, i);
             } else {
                 assert(p->type == SYMBOL_NORMAL);
                 if (p->val && is_address(p->val)) {
                     char *na = curate_address(p->val);
-                    printf("%-7s du    %-30s; -> %c%d\n", arg, na, ch, i);
+                    printx("%-7s du    %-30s; -> %c%d\n", arg, na, ch, i);
                     free(na);
                 } else if (p->val && try_symbol_extern(p->val)) {
-                    printf("%-7s dg    0x%-28llX; -> %s\n", arg, p->addr, p->val);
+                    printx("%-7s dg    0x%-28llX; -> %s\n", arg, get_symbol(p->val)->addr, p->val);
                 } else {
-                    printf("%-7s dd    %-30s; -> %c%d\n", arg, p->val ? p->val : "0", ch, i);
+                    printx("%-7s dd    %-30s; -> %c%d\n", arg, p->val ? p->val : "0", ch, i);
                 }
             }
             return;
         }
     }
-    printf("        dd    %-30s; -> %c%d\n", arg ? arg : "0", ch, i);
+    printx("        dd    %-30s; -> %c%d\n", arg ? arg : "0", ch, i);
 }
 
 
@@ -546,75 +843,76 @@ emit_finalize(void)
     int i;
     const BRICK *p = strip;
     const BRICK *q = p + idx;
-    BRICK value[16] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
-    dirty = 0xFFFF;
+    BRICK value[32] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+    dirty = 0xFFFFFFFF;
     while (p < q) {
         enum R_OP op = (enum R_OP)(long)(*p++);
         const struct R_OPDEF *r = &optab[op];
-        int ldmia_reuse = 0;
-        if (op == LABEL) {
-            BRICK arg = *p++;
-            unsigned spill = (unsigned long)*p++;
-            printf("%s:\n", arg);
-            free(arg);
-            if (!spill) {
-                // soft label: do not affect dirty set
-                continue;
-            }
-            // regular label: update dirty set
-            goto cont;
-        }
+        unsigned spill = r->spill;
+#ifdef GOTO_BY_LDMIA
+        long ldmia_reuse = 0;
+#endif
         if (op == BX_IMM || op == BX_IMM_1) {
             BRICK arg = *p++;
             const struct SYM *p = get_symbol(arg);
             assert(p);
             if (p->type != SYMBOL_EXTERN) {
-                printf("%-7s dd    %-30s; -> PC\n", arg, p->val ? p->val : "0");
+                printx("%-7s dd    %-30s; -> PC\n", arg, p->val ? p->val : "0");
             } else {
-                printf("        dg    0x%-28llX; -> PC: %s\n", p->addr, arg);
+                printx("        dg    0x%-28llX; -> PC: %s\n", p->addr, arg);
             }
             free(arg);
-        } else {
-            printf("        dg    0x%-28llX; -> PC: %s\n", r->addr, r->text);
-        }
-        if (op == ADD_SP) {
-            long restack = (long)*p++;
-            if (restack > 0 && restack > r->incsp) {
-                cry("this backend does not support custom stack %ld\n", restack);
-            }
-            printf("        times 0x%x dd 0\n", r->incsp);
-        }
-        if (op == LDMIA_R0 || op == LDMIA_R0_C) {
-            // print internal label for first register set
+        } else if (op == LABEL) {
             BRICK arg = *p++;
-            if (arg) {
-                printf("%s:\n", arg);
-                free(arg);
-            } else {
-                ldmia_reuse = 1;
+            spill = (unsigned long)*p++;
+            printx("%s:\n", arg);
+            free(arg);
+            if (!spill) {
+                // soft label: do not affect dirty set
+                continue;
+            }
+            // we can eliminate superfluous LANDING here
+#ifdef GOTO_BY_LDMIA
+        } else if (op == LDMIA_R0_C) {
+            // LDMIA_R0_C does not emit PC (a previous LDMIA_R0 did, and stack points here)
+#endif
+        } else {
+            printx("        dg    0x%-28llX; -> PC: %s\n", r->addr, r->text);
+        }
+        if (op == COMMUTE) {
+            long restack = (long)*p++;
+            if (restack < 0) {
+                restack = inloop_stack;
+            }
+            if (restack) {
+                printx("        times 0x%lx dd 0\n", restack);
             }
         }
         switch (op) {
-            case LDMIA_R0_C: {
-                BRICK arg;
-                for (i = 0; i < 16; i++) {
-                    if (r->output & (1 << i)) {
-                        free(value[i]);
-                        value[i] = *p++;
-                        if (ldmia_reuse) {
-                            continue;
-                        }
-                        play_data(value[i], i, 'R');
-                    }
-                }
-                ldmia_reuse = 0;
-                // print internal label for second register set
-                arg = *p++;
-                printf("%s:\n", arg);
-                free(arg);
-            }
-            case BX_IMM:
-            case BX_IMM_1:
+#ifdef GOTO_BY_LDMIA
+            case LDMIA_R0:
+            case LDMIA_R0_C:
+                ldmia_reuse = (long)*p++;
+#endif
+            case LABEL:
+            case LDR_R0:
+            case LDR_R0R1:
+            case LDR_R0TO3:
+            case LDR_R4:
+            case LDR_R4R5:
+            case LDR_R7:
+            case LANDING:
+            case LDR_R0_R0:
+            case STR_R0_R4:
+            case MOV_R1_R0:
+            case MOV_R0_R1:
+            case OR_R0_R1:
+            case XOR_R0_R1:
+            case AND_R0_R1:
+            case ADD_R0_R1:
+            case SUB_R0_R1:
+            case MUL_R0_R1:
+            case DIV_R0_R1:
             case BLX_R4:
             case BLX_R4_1:
             case BLX_R4_2:
@@ -622,71 +920,56 @@ emit_finalize(void)
             case BLX_R4_4:
             case BLX_R4_5:
             case BLX_R4_6:
+            case COMMUTE:
+            case SELECT:
+            case BX_IMM:
+            case BX_IMM_1:
                 for (i = 0; i < r->incsp; i++) {
                     play_data(*p, i, 'A');
                     free(*p);
                     p++;
                 }
-            case ADD_SP:
-            case LDR_R4:
-            case LDR_R0:
-            case LDR_R0R1:
-            case LDR_R0TO3:
-            case LDR_R0_R0:
-            case ADD_R0_R1:
-            case SUB_R0_R1:
-            case MUL_R0_R1:
-            case MOV_R1_R0:
-            case MOV_R0_R1:
-            case STR_R0_R4:
-            case LDR_R4R5:
-            case CMP_R0:
-            case LDMIA_R0:
-                for (i = 0; i < 16; i++) {
+                for (i = 0; i < 32; i++) {
                     if (r->output & (1 << i)) {
                         free(value[i]);
                         value[i] = *p++;
-                        if (ldmia_reuse) {
+#ifdef GOTO_BY_LDMIA
+                        if (ldmia_reuse || (op == LDMIA_R0_C && i == 15)) {
+                            // skip reused register set (or the second PC for double-LDMIA)
                             continue;
                         }
-                        if (op != LDMIA_R0_C || i != 15) {
-                            // do not show second PC for double-LDMIA
-                            play_data(value[i], i, 'R');
-                        }
+#endif
+                        play_data(value[i], i, 'R');
                     }
                 }
                 break;
             default:
                 assert(0);
         }
-        if (op == LDMIA_R0_C) {
-            assert(value[15]);
-            // internal label follows a double-LDMIA, print it now
-            printf("%s:\n", value[15]);
-        }
-      cont:
         dirty &= ~r->output;
-        dirty |= r->spill;
+        dirty |= spill;
         if (show_reg_set) {
-            printf(";");
-            for (i = 0; i < 8; i++) { /* XXX we do not care about high-order registers */
+            printx(";");
+            for (i = 0; i < 32; i++) {
                 if (!(dirty & (1 << i))) {
-                    printf(" R%d=%s", i, value[i] ? value[i] : "0");
+                    if (i >= 8) {
+                        continue;
+                    }
+                    printx(" R%d=%s", i, value[i] ? value[i] : "0");
                 } else {
                     free(value[i]);
                     value[i] = NULL;
                 }
             }
-            printf("\n");
+            printx("\n");
         }
     }
-    // XXX free all values
-    for (i = 0; i < 16; i++) {
+    for (i = 0; i < 32; i++) {
         free(value[i]);
         value[i] = NULL;
         pointer[i] = 0;
     }
-    dirty = 0xFFFF;
+    dirty = 0xFFFFFFFF;
     idx = 0;
     delete_ranges(ranges);
 }
@@ -734,13 +1017,45 @@ emit_store_direct(const char *lvalue)
 
 
 void
+emit_or(const char *value, const char *addend, int deref0, BOOL swap)
+{
+    SWAP_PTR(swap, value, addend);
+    make1(LDR_R0R1, value, addend);
+    while (deref0--) {
+        make1(LDR_R0_R0);
+    }
+    make1(OR_R0_R1);
+}
+
+
+void
+emit_xor(const char *value, const char *addend, int deref0, BOOL swap)
+{
+    SWAP_PTR(swap, value, addend);
+    make1(LDR_R0R1, value, addend);
+    while (deref0--) {
+        make1(LDR_R0_R0);
+    }
+    make1(XOR_R0_R1);
+}
+
+
+void
+emit_and(const char *value, const char *addend, int deref0, BOOL swap)
+{
+    SWAP_PTR(swap, value, addend);
+    make1(LDR_R0R1, value, addend);
+    while (deref0--) {
+        make1(LDR_R0_R0);
+    }
+    make1(AND_R0_R1);
+}
+
+
+void
 emit_add(const char *value, const char *addend, int deref0, BOOL swap)
 {
-    if (swap) {
-        const char *tmp = value;
-        value = addend;
-        addend = tmp;
-    }
+    SWAP_PTR(swap, value, addend);
     make1(LDR_R0R1, value, addend);
     while (deref0--) {
         make1(LDR_R0_R0);
@@ -763,11 +1078,7 @@ emit_sub(const char *value, const char *addend, int deref0)
 void
 emit_mul(const char *value, const char *multiplier, int deref0, BOOL swap)
 {
-    if (swap) {
-        const char *tmp = value;
-        value = multiplier;
-        multiplier = tmp;
-    }
+    SWAP_PTR(swap, value, multiplier);
     make1(LDR_R0R1, value, multiplier);
     while (deref0--) {
         make1(LDR_R0_R0);
@@ -777,11 +1088,25 @@ emit_mul(const char *value, const char *multiplier, int deref0, BOOL swap)
 
 
 void
+emit_div(const char *value, const char *addend, int deref0)
+{
+    make1(LDR_R0R1, value, addend);
+    while (deref0--) {
+        make1(LDR_R0_R0);
+    }
+    make1(DIV_R0_R1);
+}
+
+
+void
 emit_call(const char *func, char **args, int nargs, int deref0, BOOL inloop, BOOL retval, int attr, int regparm, int restack)
 {
     char *tmp = NULL;
     enum R_OP op = BLX_R4;
     int rargs = nargs;
+    if (args == NULL) {
+        rargs = nargs = 0;
+    }
     if (rargs > regparm) {
         rargs = regparm;
     }
@@ -807,19 +1132,20 @@ emit_call(const char *func, char **args, int nargs, int deref0, BOOL inloop, BOO
     }
     make1(LDR_R4, func);
     if ((attr & ATTRIB_STACK) || inloop) {
-        make1(ADD_SP, restack);
-    }
-    if (inloop) {
+        char *skip;
         tmp = new_name("res");
-        add_label(tmp, -1);
-        make1(LABEL, tmp, 0);
+        skip = create_address_str(tmp, -4);
+        make1(LDR_R7, skip);
+        make1(COMMUTE, restack);
+        make1(LABEL, tmp, R7);
+        free(skip);
     }
     if (!(attr & ATTRIB_STDCALL) && nargs > rargs) {
         assert(nargs - rargs <= 6);
         op += nargs - rargs;
     }
     make1(op, args + rargs);
-    if (tmp) {
+    if (inloop) {
         char *sav;
         char *gdg = new_name("gdg");
         if (retval) {
@@ -828,13 +1154,13 @@ emit_call(const char *func, char **args, int nargs, int deref0, BOOL inloop, BOO
         add_extern(gdg, optab[op].addr, 0, -1);
         make_symbol_used(gdg);
         emit_load_direct(gdg, FALSE);
-        emit_store_direct(tmp);
+        emit_store_indirect(tmp);
         if (retval) {
             emit_restore(sav);
         }
         free(gdg);
-        free(tmp);
     }
+    free(tmp);
 }
 
 
@@ -871,74 +1197,117 @@ emit_restore(char *scratch)
 void
 emit_goto(const char *label)
 {
+#ifndef GOTO_BY_LDMIA
+    char *label4 = create_address_str(label, 4);
+    make1(LDR_R7, label4);
+    make1(COMMUTE, 0);
+    free(label4);
+#else
     const char *reuse = optimize_jmp ? get_label_with_label(label) : NULL;
-    char *tmp = NULL;
+    char *set, *tmp = NULL;
 
     if (reuse) {
-        make1(LDR_R0, reuse);
+        set = create_address_str(reuse, 4);
+        make1(LDR_R0, set);
     } else {
         tmp = new_name("stk");
-        make1(LDR_R0, tmp);
+        set = create_address_str(tmp, 4);
+        make1(LDR_R0, set);
+        make1(LABEL, tmp, 0);
+        if (optimize_jmp) {
+            set_label_with_label(tmp, label);
+        }
     }
-    make1(LDMIA_R0, tmp, label, label);
-    if (tmp) {
-        add_label_with_label(tmp, label);
-        free(tmp);
-    }
+
+    make1(LDMIA_R0, !tmp, label, label); // create_address_str(label, 4)
+    free(set);
+    free(tmp);
+#endif
 }
 
 
 void
 emit_cond(const char *label, enum cond_t cond)
 {
-    const char *reuse = optimize_jmp ? get_label_with_label(label) : NULL;
+#ifndef GOTO_BY_LDMIA
+    char *dst = new_name("dst");
     char *next = new_name("nxt");
-    char *tmp1 = NULL;
+    char *pivot = create_address_str(dst, -4);
+    char *next4 = create_address_str(next, -4);
+    char *label4 = create_address_str(label, 4);
+    BOOL inverse = (cond == COND_EQ);
+    assert(cond == COND_NE || cond == COND_EQ);
+    if (inverse) {
+        make1(LDR_R4R5, next4, label4);
+    } else {
+        make1(LDR_R4R5, label4, next4);
+    }
+    make1(SELECT);
+    emit_store_direct(pivot);
+    if ((optab[STR_R0_R4].output & R7) == 0) {
+        make1(LANDING);
+    }
+    make1(LABEL, dst, 0);
+    make1(COMMUTE, 0);
+    make1(LABEL, next, 0);
+    free(label4);
+    free(next4);
+    free(pivot);
+    free(next);
+    free(dst);
+#else
+    const char *reuse = optimize_jmp ? get_label_with_label(label) : NULL;
+    char *set, *tmp = NULL;
+    char *next = new_name("nxt");
     char *tmp2 = new_name("stk");
     BOOL inverse = (cond == COND_EQ);
     assert(cond == COND_NE || cond == COND_EQ);
 
     if (reuse) {
-        if (inverse) {
-            make1(LDR_R4R5, tmp2, reuse);
-        } else {
-            make1(LDR_R4R5, reuse, tmp2);
-        }
+        set = create_address_str(reuse, 4);
+        SWAP_PTR(inverse, set, tmp2);
+        make1(LDR_R4R5, set, tmp2);
+        SWAP_PTR(inverse, set, tmp2);
+        make1(SELECT);
     } else {
-        tmp1 = new_name("stk");
-        if (inverse) {
-            make1(LDR_R4R5, tmp2, tmp1);
-        } else {
-            make1(LDR_R4R5, tmp1, tmp2);
+        tmp = new_name("stk");
+        set = create_address_str(tmp, 4);
+        SWAP_PTR(inverse, set, tmp2);
+        make1(LDR_R4R5, set, tmp2);
+        SWAP_PTR(inverse, set, tmp2);
+        make1(SELECT);
+        make1(LABEL, tmp, 0);
+        if (optimize_jmp) {
+            set_label_with_label(tmp, label);
         }
     }
-    make1(CMP_R0);
-    make1(LDMIA_R0_C, tmp1, label, label, tmp2, next, next);
-    if (tmp1) {
-        add_label_with_label(tmp1, label);
-        free(tmp1);
-    }
-    add_label(tmp2, -1); // XXX labels with -1 do not interfere with our any_label() mechanism
-    add_label(next, idx);
 
-    free(tmp2);
+    make1(LDMIA_R0, !tmp, label, label); //create_address_str(label, 4);
+    make1(LABEL, tmp2, 0);
+    make1(LDMIA_R0_C, !tmp2, next, next); // create_address_str(next, 4);
+    make1(LABEL, next, 0);
     free(next);
+    free(tmp2);
+    free(set);
+    free(tmp);
+#endif
 }
 
 
 void
-emit_label(const char *label, BOOL used)
+emit_label(const char *label, BOOL used, BOOL last)
 {
     if (!used) {
-        if (get_symbol(label)) { /* XXX maybe we took its address */
-            make1(LABEL, label, 0);
-            return;
-        }
+        make1(LABEL, label, 0);
         cry("unused label '%s'\n", label);
-        return;
+    } else if (last) {
+        make1(LABEL, label, 0xFFFFFFFF);
+#ifndef GOTO_BY_LDMIA
+        make1(LANDING);
+#endif
+    } else {
+        make1(LABEL, label, 0);
     }
-    add_label(label, idx);
-    make1(LABEL, label, 0xFFFF);
 }
 
 
@@ -946,7 +1315,7 @@ void
 emit_extern(const char *import, unsigned long long val, int attr, int regparm)
 {
     /* should not emit anything, but add symbol as extern */
-    printf(";;; extern %s\n", import);
+    printx(";;; extern %s\n", import);
     add_extern(import, (val != -1ULL) ? val : solve_import(import), attr, regparm);
 }
 
@@ -955,7 +1324,7 @@ void
 emit_fast(const char *var, const char *val)
 {
     /* should not emit anything, this is for informative purposes only */
-    printf(";;; %s := %s\n", var, val);
+    printx(";;; %s := %s\n", var, val);
 }
 
 
@@ -965,11 +1334,34 @@ emit_initialize(void)
 }
 
 
+int
+backend_test_gadgets(int verbose)
+{
+    size_t i;
+    int missing = 0;
+    for (i = 0; i < sizeof(optab) / sizeof(optab[0]); i++) {
+        struct R_OPDEF *r = try_solve_op(i);
+        if (!r) {
+            continue;
+        }
+        if (!r->addr) {
+            printf("WARNING: undefined gadget '%s'\n", r->text);
+            missing = 1;
+            continue;
+        }
+        if (verbose) {
+            printf("GADGET: 0x%llx: %s\n", r->addr, r->text);
+            if (verbose > 1) {
+                printf("\tspill: 0x%x, output: 0x%x, auxout: 0x%x, incsp: %d, flags: 0x%x\n", r->spill, r->output, r->auxout, r->incsp, r->flags);
+            }
+        }
+    }
+    return missing;
+}
+
+
 const char *
 backend_name(void)
 {
     return "ARM";
 }
-
-
-int arch_regparm = 4;

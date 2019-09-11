@@ -158,17 +158,17 @@ emit_symbols(void)
                     if (p->val) {
                         if (is_address(p->val)) {
                             char *na = curate_address(p->val);
-                            printf("%-7s du    %s\n", p->key, na);
+                            printx("%-7s du    %s\n", p->key, na);
                             free(na);
                         } else if (try_symbol_extern(p->val)) {
-                            printf("%-7s dg    0x%-28llX; -> %s\n", p->key, get_symbol(p->val)->addr, p->val);
+                            printx("%-7s dg    0x%-28llX; -> %s\n", p->key, get_symbol(p->val)->addr, p->val);
                         } else {
-                            printf("%-7s dd    %s\n", p->key, p->val);
+                            printx("%-7s dd    %s\n", p->key, p->val);
                         }
                     } else if (p->attr & ATTRIB_VOLATILE) {
-                        printf("%-7s dd    0\n", p->key);
+                        printx("%-7s dd    0\n", p->key);
                     } else {
-                        printf(";-- %s = ?\n", p->key);
+                        printx(";-- %s = ?\n", p->key);
                     }
                     break;
                 case SYMBOL_STRING:
@@ -177,17 +177,17 @@ emit_symbols(void)
                     break;
                 default: {
                     int i;
-                    printf("%s:\n", p->key);
+                    printx("%s:\n", p->key);
                     for (i = 0; i < p->type; i++) {
                         char *val = ((char **)p->val)[i];
                         if (is_address(val)) {
                             char *na = curate_address(val);
-                            printf("        du    %s\n", na);
+                            printx("        du    %s\n", na);
                             free(na);
                         } else if (try_symbol_extern(val)) {
-                            printf("        dg    0x%-28llX; -> %s\n", get_symbol(val)->addr, val);
+                            printx("        dg    0x%-28llX; -> %s\n", get_symbol(val)->addr, val);
                         } else {
-                            printf("        dd    %s\n", val);
+                            printx("        dd    %s\n", val);
                         }
                         free(val);
                     }
@@ -197,7 +197,7 @@ emit_symbols(void)
     }
     for (p = symtab; p; p = p->next) {
         if (p->used == UNUSED && p->type == SYMBOL_STRING) {
-            printf("%-7s db    %s, 0\n", p->key, p->val);
+            printx("%-7s db    %s, 0\n", p->key, p->val);
         }
     }
 }
@@ -328,12 +328,17 @@ get_label_with_label(const char *target)
 
 
 void
-add_label_with_label(const char *label, const char *target)
+set_label_with_label(const char *label, const char *target)
 {
-    const struct SYM *p = get_symbol(label);
-    if (p) {
-        die("symbol '%s' already defined\n", label);
+    struct SYM *p = (struct SYM *)get_symbol(label); // wrong cast
+    if (!p) {
+        die("symbol '%s' not defined\n", label);
     }
-    symtab = new_symbol(label, target, SYMBOL_LABEL);
-    symtab->idx = -1;
+    if (p->type != SYMBOL_LABEL) {
+        die("symbol '%s' is not a label\n", label);
+    }
+    if (p->val) {
+        die("symbol '%s' cannot be reused\n", label);
+    }
+    p->val = xstrdup(target);
 }

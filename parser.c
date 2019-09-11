@@ -36,7 +36,7 @@ expect(const char *what)
 }
 
 
-static struct node *R_additive_exp(struct the_node *the_node);
+static struct node *R_or_exp(struct the_node *the_node);
 static struct imm_node *R_immediate_exp(void);
 
 
@@ -291,10 +291,10 @@ R_argument_exp_list(struct the_node *the_node)
 {
     struct node *n, *p;
     ENTER();
-    n = R_additive_exp(the_node);
+    n = R_or_exp(the_node);
     for (p = n; IS(T_COMMA); p = p->next) {
         next_token(); /* skip ',' */
-        p->next = R_additive_exp(the_node);
+        p->next = R_or_exp(the_node);
     }
     LEAVE();
     return n;
@@ -337,7 +337,7 @@ R_rvalue_exp(struct the_node *the_node)
         n = (struct node *)R_immediate_exp();
     } else if (IS(T_OPENBRACE)) {
         next_token(); /* skip '(' */
-        n = (struct node *)R_additive_exp(the_node);
+        n = (struct node *)R_or_exp(the_node);
         if (!IS(T_CLOSEBRACE)) {
             expect("')'");
         }
@@ -358,13 +358,17 @@ R_multiplicative_exp(struct the_node *the_node)
     ENTER();
     n = alloc_mul_node();
     n->list = R_rvalue_exp(the_node);
-    for (p = n->list; IS(T_MUL); ) {
+    for (p = n->list; IS(T_MUL) || IS(T_DIV); ) {
+        int negative = IS(T_DIV);
         next_token(); /* skip '*' */
         q = R_rvalue_exp(the_node);
-        if (optimize_add && p->type == NODE_IMM && q->type == NODE_IMM && !is_address(AS_IMM(p)->value) && !is_address(AS_IMM(q)->value)) {
+        q->inverse = negative;
+        negative ^= p->inverse;
+        /* XXX division is not allowed here: x / 3 * 3 would be converted to x / (3 / 3) which is not what we want */
+        if (optimize_add && p->type == NODE_IMM && q->type == NODE_IMM && !is_address(AS_IMM(p)->value) && !is_address(AS_IMM(q)->value) && !negative) {
             char *v1 = AS_IMM(p)->value;
             char *v2 = AS_IMM(q)->value;
-            AS_IMM(p)->value = create_op_str(v1, v2, '*');
+            AS_IMM(p)->value = create_op_str(v1, v2, negative ? '/' : '*');
             free(v1);
             free(v2);
             free(q);
@@ -431,12 +435,114 @@ R_additive_exp(struct the_node *the_node)
 
 
 static struct node *
+R_and_exp(struct the_node *the_node)
+{
+    struct and_node *n;
+    struct node *p, *q;
+    ENTER();
+    n = alloc_and_node();
+    n->list = R_additive_exp(the_node);
+    for (p = n->list; IS(T_AND); ) {
+        next_token(); /* skip '&' */
+        q = R_additive_exp(the_node);
+        if (optimize_add && p->type == NODE_IMM && q->type == NODE_IMM && !is_address(AS_IMM(p)->value) && !is_address(AS_IMM(q)->value)) {
+            char *v1 = AS_IMM(p)->value;
+            char *v2 = AS_IMM(q)->value;
+            AS_IMM(p)->value = create_op_str(v1, v2, '&');
+            free(v1);
+            free(v2);
+            free(q);
+            continue;
+        }
+        p->next = q;
+        p = p->next;
+    }
+    if (n->list->next == NULL) {
+        /* reduce and to simple factor if possible */
+        p = (struct node *)n;
+        n = (struct and_node *)n->list;
+        free(p);
+    }
+    LEAVE();
+    return (struct node *)n;
+}
+
+
+static struct node *
+R_xor_exp(struct the_node *the_node)
+{
+    struct xor_node *n;
+    struct node *p, *q;
+    ENTER();
+    n = alloc_xor_node();
+    n->list = R_and_exp(the_node);
+    for (p = n->list; IS(T_XOR); ) {
+        next_token(); /* skip '^' */
+        q = R_and_exp(the_node);
+        if (optimize_add && p->type == NODE_IMM && q->type == NODE_IMM && !is_address(AS_IMM(p)->value) && !is_address(AS_IMM(q)->value)) {
+            char *v1 = AS_IMM(p)->value;
+            char *v2 = AS_IMM(q)->value;
+            AS_IMM(p)->value = create_op_str(v1, v2, '^');
+            free(v1);
+            free(v2);
+            free(q);
+            continue;
+        }
+        p->next = q;
+        p = p->next;
+    }
+    if (n->list->next == NULL) {
+        /* reduce xor to simple factor if possible */
+        p = (struct node *)n;
+        n = (struct xor_node *)n->list;
+        free(p);
+    }
+    LEAVE();
+    return (struct node *)n;
+}
+
+
+static struct node *
+R_or_exp(struct the_node *the_node)
+{
+    struct or_node *n;
+    struct node *p, *q;
+    ENTER();
+    n = alloc_or_node();
+    n->list = R_xor_exp(the_node);
+    for (p = n->list; IS(T_OR); ) {
+        next_token(); /* skip '|' */
+        q = R_xor_exp(the_node);
+        if (optimize_add && p->type == NODE_IMM && q->type == NODE_IMM && !is_address(AS_IMM(p)->value) && !is_address(AS_IMM(q)->value)) {
+            char *v1 = AS_IMM(p)->value;
+            char *v2 = AS_IMM(q)->value;
+            AS_IMM(p)->value = create_op_str(v1, v2, '|');
+            free(v1);
+            free(v2);
+            free(q);
+            continue;
+        }
+        p->next = q;
+        p = p->next;
+    }
+    if (n->list->next == NULL) {
+        /* reduce or to simple factor if possible */
+        p = (struct node *)n;
+        n = (struct or_node *)n->list;
+        free(p);
+    }
+    LEAVE();
+    return (struct node *)n;
+}
+
+
+static struct node *
 R_assignment_exp(struct the_node *the_node)
 {
     struct node *n;
     ENTER();
     /* we cannot tell here if we have lvalue or rvalue, so use magic */
-    n = R_additive_exp(the_node);
+    n = R_or_exp(the_node);
     if (n->type == NODE_LVAL && IS(T_ASSIGN)) {
         next_token(); /* skip '=' */
         n->next = R_assignment_exp(the_node);

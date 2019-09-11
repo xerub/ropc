@@ -1,7 +1,7 @@
 1. The input is a C-like preprocessed source, the output is a NASM-like strip.
 	dg	-> define gadget, which must be slid by library slide
-	du	-> define local, which must be slid by executable slide
-	dd	-> define actual value (32bit)
+	du	-> define local, which must be slid by strip slide
+	dd	-> define data (%define dd -> dq for 64bit)
 
 2. we implement lazy assignment.  that is, an assignment is not guaranteed
     to generate code, it only guarantees that when first using the assigned
@@ -9,9 +9,9 @@
     one line at a time (and since we do not have proper flow analysis)
     any assignment in a loop cannot be lazy.  use 'const' to avoid this
 
-3. immediate expressions using two addresses are computed "the hard way"
-    (there is no workaround at this time).  simple additive expressions
-    involving immediates are passed as-is to the backend assembler
+3. immediate expressions involving local pointers cannot be simplified, unless
+    they can be reduced to: PTR + scalar.  that is because there is one single
+    final addition applied by the assembler, after full evaluation.
 
 4. strings are treated as implicit addresses.  therefore,
 	b = "a" + 1
@@ -27,12 +27,12 @@
 
 6. sometimes, it is better to use multiple assignments for the same value
 	fd = fd2 = open(...);
-	use(fd);
-	use(fd2);
+	read(fd, ...);
+	close(fd2);
     instead of
 	fd = open(...);
-	use(fd);
-	use(fd);
+	read(fd, ...);
+	close(fd);
 
 7. this contrived load/store architecture stems from the assumptions that
     some rop gadgets are hard -- or impossible -- to find.  for example,
@@ -47,8 +47,36 @@
 	if (modify(&x)) goto label;
     stack above modify is destroyed, so jumping back to label is problematic.
     also, any use of *(&x) is probably doomed.  therefore, we need to reserve
-    some stack space before any such calls.
-	I REALLY NEED TO FIX THIS: IT IS HORRIBLE
+    some stack space before any such calls. see '[[stack]]'
 
 9. comments start with ';'.  there can be no multiple statements on the same
     line.  also, each statement should be on its own line
+
+====
+
+const:
+    used for
+	var = immediate
+    to avoid generating
+	*&var = immediate
+    var is inlined and defined as immediate, when possible
+    useful inside loops
+
+volatile:
+    used for
+	x = var
+    to force generating
+	x = *&var
+    var is never inlined
+    needed when a variable is used before and after a function call
+
+therefore
+    "const volatile" is perfectly ok :)
+    because the var will never be inlined, but will not generate code for assignment
+
+====
+
+extern function[[attr]];
+a = function;
+a();		will not respect import attributes
+[[attr]]a();	will respect call attributes

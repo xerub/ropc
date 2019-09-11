@@ -52,6 +52,33 @@ create_the_node(void)
 }
 
 
+static void
+move_labels(struct the_node *from, struct the_node *to)
+{
+    if (from->labels) {
+        struct label_node *l = from->labels;
+        while (l->next) {
+            l = l->next;
+        }
+        l->next = to->labels;
+        to->labels = from->labels;
+        from->labels = NULL;
+    }
+}
+
+
+static void
+merge_labels(struct the_node *list)
+{
+    struct the_node *n;
+    for (n = list; n; n = n->next) {
+        if (n->code == NULL && n->jump == NULL && n->next) {
+            move_labels(n, n->next);
+        }
+    }
+}
+
+
 static struct the_node *
 find_node_with_label(struct the_node *head, const char *label)
 {
@@ -93,6 +120,9 @@ void
 emit_code(struct the_node *list)
 {
     struct the_node *n = reverse_list(list);
+    if (optimize_jmp) {
+        merge_labels(n);
+    }
     link_graph(n);
     mark_cycles(n);
     emit_initialize();
@@ -104,7 +134,7 @@ emit_code(struct the_node *list)
         token.filename = n->filename;
         for (l = n->labels; l; ) {
             struct label_node *q = l->next;
-            emit_label(l->label, l->used);
+            emit_label(l->label, l->used, l->next == NULL);
             free(l->label);
             free(l);
             l = q;

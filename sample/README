@@ -1,0 +1,50 @@
+1. Build the rop compilers:
+    $ Build.sh [x86] [x86_64] [arm] [arm64] [all]
+
+You should end up with a bunch of rop compilers:
+    ropc-x86 ropc-x86_64 ropc-arm ropc-arm64
+
+
+2. Build the loaders:
+    $ make -f Makefile.macos [loader-x86] [loader-x86_64] [loader-arm] [loader-arm64]
+or
+    $ make -f Makefile.linux [loader-x86] [loader-x86_64]
+
+You should end up with a bunch of loaders:
+    loader-x86 loader-x86_64 loader-arm loader-arm64
+
+NB: all loaders can be PIE or non-PIE, it doesn't really matter
+
+
+3. Create links for the shared cache, to link the rop strip against:
+    dyld_shared_cache_i386 -> /var/db/dyld/dyld_shared_cache_i386
+    dyld_shared_cache_x86_64 -> /var/db/dyld/dyld_shared_cache_x86_64h
+    dyld_shared_cache_armv7 -> /S/L/C/com.apple.dyld/dyld_shared_cache_armv7s
+    dyld_shared_cache_arm64 -> /S/L/C/com.apple.dyld/dyld_shared_cache_arm64
+or (Linux)
+    dyld_shared_cache_i386 -> /lib/libc-2.23.so
+    dyld_shared_cache_x86_64 -> /lib64/libc-2.23.so
+    ...
+or (testing)
+    dyld_shared_cache_i386 -> loader-x86
+    dyld_shared_cache_x86_64 -> loader-x86_64
+    dyld_shared_cache_armv7 -> loader-arm
+    dyld_shared_cache_arm64 -> loader-arm64
+
+NB: you can use the respective loader-??? as a "shared cache" since it has
+all the needed gadgets, but you'd have to match the rope.c imports with the
+loader's exports.  Also, in this case, all the loaders should be bind-now,
+to avoid dynamic symbol resolution, otherwise each function call may eat up
+a *lot* of stack space, likely resulting in a crash.  Such chains *must* be
+run with -self parameter, because they need the loader (not the lib) slide.
+
+
+4. Build the rop strips:
+    $ make [rop-x86] [rop-x86_64] [rop-arm] [rop-arm64]
+
+You should end up with a bunch of rop strips:
+    rop-x86 rop-x86_64 rop-arm rop-arm64
+
+
+5. Run the strips:
+    ./loader-x86_64 [-self] rop-x86_64

@@ -1,0 +1,27 @@
+CFLAGS = -Wall -W -pedantic -O2
+LDFLAGS = -bind_at_load
+
+all: loader-x86 loader-x86_64 loader-arm loader-arm64
+
+loader-x86: loader-x86.o
+	ld -o $@ -demangle -dynamic -arch i386 -macosx_version_min 10.14.0 $(LDFLAGS) $< -lc
+
+loader-x86.o: loader.c
+	gcc -o $@ -m32 $(CFLAGS) -c $<
+
+loader-x86_64: loader.c
+	gcc -o $@ -m64 $(CFLAGS) -Wl,$(LDFLAGS) $<
+
+loader-arm: loader.c
+	clang -arch armv7 -isysroot /usr/local/share/SDKs/iPhoneOS7.0.sdk -o $@ $(CFLAGS) -Wl,$(LDFLAGS) $<
+	ldid -Sent.xml $@
+
+loader-arm64: loader.c
+	clang -arch arm64 -isysroot /usr/local/share/SDKs/iPhoneOS7.0.sdk -o $@ $(CFLAGS) -Wl,$(LDFLAGS) $<
+	ldid2 -Sent.xml $@
+
+clean:
+	-$(RM) loader-x86.o
+
+distclean: clean
+	-$(RM) loader-x86 loader-x86_64 loader-arm loader-arm64

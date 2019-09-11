@@ -7,6 +7,6 @@ code.o: config.h util.h lexer.h parser.h symtab.h cycle.h emit.h code.h backend.
 emit.o: config.h util.h emit.h code.h symtab.h backend.h
 symtab.o: config.h util.h symtab.h
 backend.o: config.h util.h code.h backend.h symtab.h binary.h
-binary.o: binary.h
+binary.o: elf.h binary.h
 util.o: config.h util.h lexer.h
 ropc.o: config.h util.h lexer.h parser.h code.h symtab.h backend.h

@@ -1,0 +1,36 @@
+all: rop-x86.asm rop-x86_64.asm rop-arm.asm rop-arm64.asm
+
+
+rop-x86.asm: rop-x86.i
+	./ropc-x86 -o $@ -O2 -g -n $<
+
+rop-x86.i: rope.c
+	gcc -o $@ -DBITS=32 -E $<
+
+
+rop-x86_64.asm: rop-x86_64.i
+	./ropc-x86_64 -o $@ -O2 -g -n $<
+
+rop-x86_64.i: rope.c
+	gcc -o $@ -DBITS=64 -E $<
+
+
+rop-arm.asm: rop-arm.i
+	./ropc-arm -o $@ -O2 -g -n $<
+
+rop-arm.i: rope.c
+	gcc -o $@ -DBITS=32 -E $<
+
+
+rop-arm64.asm: rop-arm64.i
+	./ropc-arm64 -o $@ -O2 -g -n $<
+
+rop-arm64.i: rope.c
+	gcc -o $@ -DBITS=64 -DARM64 -E $<
+
+
+clean:
+	-$(RM) rop-x86.asm rop-x86_64.asm rop-arm.asm rop-arm64.asm
+	-$(RM) rop-x86.i rop-x86_64.i rop-arm.i rop-arm64.i
+
+distclean: clean

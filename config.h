@@ -1,7 +1,7 @@
 #ifndef CONFIG_H_
 #define CONFIG_H_
 
-#define ROPC_VERSION "1.0"
+#define ROPC_VERSION "1.2"
 #undef LEXER_DEBUG
 #undef PARSER_DEBUG
 #undef DATA_DEBUG
@@ -11,7 +11,6 @@
 #undef SLOW_LOAD_SAVE
 #define MAX_FUNC_ARGS 16
 
-extern int arch_regparm;
 extern int optimize_imm;
 extern int optimize_add;
 extern int optimize_reg;
@@ -22,5 +21,6 @@ extern int enable_cfstr;
 extern int inloop_stack;
 
 extern const unsigned char *binmap;
+extern size_t binsz;
 
 #endif

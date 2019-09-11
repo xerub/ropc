@@ -34,6 +34,9 @@ Regular tokens:
     +		T_ADD
     -		T_SUB
     *		T_MUL
+    /		T_DIV
+    |		T_OR
+    ^		T_XOR
     &		T_AND
     @		T_AT
 Strings:

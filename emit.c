@@ -42,6 +42,39 @@ alloc_lval_node(void)
 }
 
 
+struct or_node *
+alloc_or_node(void)
+{
+    struct or_node *n = xmalloc(sizeof(struct or_node));
+    n->next = NULL;
+    n->type = NODE_OR;
+    n->inverse = 0;
+    return n;
+}
+
+
+struct xor_node *
+alloc_xor_node(void)
+{
+    struct xor_node *n = xmalloc(sizeof(struct xor_node));
+    n->next = NULL;
+    n->type = NODE_XOR;
+    n->inverse = 0;
+    return n;
+}
+
+
+struct and_node *
+alloc_and_node(void)
+{
+    struct and_node *n = xmalloc(sizeof(struct and_node));
+    n->next = NULL;
+    n->type = NODE_AND;
+    n->inverse = 0;
+    return n;
+}
+
+
 struct add_node *
 alloc_add_node(void)
 {
@@ -103,6 +136,27 @@ free_nodes(struct node *n)
                 }
                 break;
             }
+            case NODE_OR: {
+                struct or_node *p = (struct or_node *)n;
+                if (p->list) {
+                    free_nodes(p->list);
+                }
+                break;
+            }
+            case NODE_XOR: {
+                struct xor_node *p = (struct xor_node *)n;
+                if (p->list) {
+                    free_nodes(p->list);
+                }
+                break;
+            }
+            case NODE_AND: {
+                struct and_node *p = (struct and_node *)n;
+                if (p->list) {
+                    free_nodes(p->list);
+                }
+                break;
+            }
             case NODE_ADD: {
                 struct add_node *p = (struct add_node *)n;
                 if (p->list) {
@@ -153,6 +207,33 @@ walk_nodes(struct node *n, int level)
                     walk_nodes(p->parm, level + 1);
                 }
                 show(")\n");
+                break;
+            }
+            case NODE_OR: {
+                struct or_node *p = (struct or_node *)n;
+                if (p->list) {
+                    show(";== |(\n");
+                    walk_nodes(p->list, level + 1);
+                    show(")\n");
+                }
+                break;
+            }
+            case NODE_XOR: {
+                struct xor_node *p = (struct xor_node *)n;
+                if (p->list) {
+                    show(";== ^(\n");
+                    walk_nodes(p->list, level + 1);
+                    show(")\n");
+                }
+                break;
+            }
+            case NODE_AND: {
+                struct and_node *p = (struct and_node *)n;
+                if (p->list) {
+                    show(";== &(\n");
+                    walk_nodes(p->list, level + 1);
+                    show(")\n");
+                }
                 break;
             }
             case NODE_ADD: {
@@ -349,7 +430,7 @@ emit_nodes(struct node *n, const char *assignto, BOOL force, BOOL inloop)
                 }
             }
             if (direct) {
-                emit_call(func, NULL, 0, deref0, inloop, retval, p->attr, regparm, p->restack);
+                emit_call(func, NULL, 1, deref0, inloop, retval, p->attr, regparm, p->restack);
             } else {
                 emit_call(func, args, i, deref0, inloop, retval, p->attr, regparm, p->restack);
             }
@@ -360,6 +441,9 @@ emit_nodes(struct node *n, const char *assignto, BOOL force, BOOL inloop)
             break;
         }
         case NODE_MUL:
+        case NODE_OR:
+        case NODE_XOR:
+        case NODE_AND:
         case NODE_ADD: {
             struct node *term;
             struct node *prev;
@@ -413,7 +497,17 @@ emit_nodes(struct node *n, const char *assignto, BOOL force, BOOL inloop)
                     make_symbol_used(tmp);
                 }
                 if (n->type == NODE_MUL) {
-                    emit_mul(prev_tmp, tmp, deref0, swap);
+                    if (term->inverse) {
+                        emit_div(prev_tmp, tmp, deref0);
+                    } else {
+                        emit_mul(prev_tmp, tmp, deref0, swap);
+                    }
+                } else if (n->type == NODE_OR) {
+                    emit_or(prev_tmp, tmp, deref0, swap);
+                } else if (n->type == NODE_XOR) {
+                    emit_xor(prev_tmp, tmp, deref0, swap);
+                } else if (n->type == NODE_AND) {
+                    emit_and(prev_tmp, tmp, deref0, swap);
                 } else {
                     if (term->inverse) {
                         emit_sub(prev_tmp, tmp, deref0);
