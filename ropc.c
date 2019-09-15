@@ -143,7 +143,6 @@ int
 main(int argc, char **argv)
 {
     FILE *f;
-    char buf[BUFSIZ];
     const char *filename = NULL;
     struct the_node *list = NULL;
 
@@ -184,16 +183,11 @@ main(int argc, char **argv)
         token.filename = strdup("<stdin>");
         f = stdin;
     }
+    init_tokens(f);
 
     new_printer(outfile);
 
-    while (fgets(buf, sizeof(buf), f)) {
-        struct the_node *n = parse(buf);
-        if (n) {
-            n->next = list;
-            list = n;
-        }
-    }
+    list = parse();
     emit_code(list);
     emit_symbols();
     free_symbols();

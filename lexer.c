@@ -15,6 +15,8 @@
 #define isalnu_(c) (isalnum(c) || ((c) == '_'))
 
 
+static FILE *source;
+static char *saved = NULL;
 static char **tokens = NULL;
 static int ntok, itok;
 struct TOKEN token;
@@ -77,7 +79,7 @@ tokenize(const char *s)
     }
 #endif
 
-    for (ntok = 0; *s && *s != ';'; s++) {
+    for (ntok = 0; *s; s++) {
         char *p;
         if (*s == '/' && s[1] == '/') {
             break;
@@ -89,6 +91,7 @@ tokenize(const char *s)
 
         switch (*s) {
             case ':':
+            case ';':
             case ',':
             case '{':
             case '}':
@@ -162,10 +165,40 @@ free_tokens(BOOL full)
         free(tokens[ntok]);
     }
     if (full) {
+        free(saved);
+        saved = NULL;
         free(tokens);
         tokens = NULL;
         free(token.filename);
         token.filename = NULL;
+    }
+}
+
+
+void
+init_tokens(void *p)
+{
+    source = p;
+}
+
+
+static void
+fetch_tokens(void)
+{
+    char buf[BUFSIZ];
+    if (!source || itok < ntok) {
+        return;
+    }
+    if (token.sym && (!saved || strcmp(token.sym, saved))) {
+        token.sym = strdup(token.sym);
+        if (!token.sym) {
+            die("out of memory\n");
+        }
+        free(saved);
+        saved = (char *)token.sym;
+    }
+    free_tokens(FALSE);
+    while (fgets(buf, sizeof(buf), source) && tokenize(buf) == 0) {
     }
 }
 
@@ -176,6 +209,16 @@ eval_token(const char *s)
     enum TOKTYPE type;
     if (!strcmp(s, "if")) {
         type = T_K_IF;
+    } else if (!strcmp(s, "else")) {
+        type = T_K_ELSE;
+    } else if (!strcmp(s, "do")) {
+        type = T_K_DO;
+    } else if (!strcmp(s, "while")) {
+        type = T_K_WHILE;
+    } else if (!strcmp(s, "break")) {
+        type = T_K_BREAK;
+    } else if (!strcmp(s, "continue")) {
+        type = T_K_CONTINUE;
     } else if (!strcmp(s, "goto")) {
         type = T_K_GOTO;
     } else if (!strcmp(s, "const")) {
@@ -186,6 +229,8 @@ eval_token(const char *s)
         type = T_K_VOLATILE;
     } else if (!strcmp(s, ":")) {
         type = T_COLON;
+    } else if (!strcmp(s, ";")) {
+        type = T_SEMICOLON;
     } else if (!strcmp(s, ",")) {
         type = T_COMMA;
     } else if (!strcmp(s, "{")) {
@@ -240,6 +285,7 @@ next_token(void)
 {
     token.sym = NULL;
     token.type = T_EOI;
+    fetch_tokens();
     if (itok < ntok) {
         token.sym = tokens[itok++];
         token.type = eval_token(token.sym);
@@ -305,6 +351,7 @@ enum TOKTYPE
 peek_token(void)
 {
     enum TOKTYPE type = T_EOI;
+    fetch_tokens();
     if (itok < ntok) {
         type = eval_token(tokens[itok]);
     }

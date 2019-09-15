@@ -65,6 +65,25 @@ reverse_list(void *n)
 }
 
 
+void *
+append_list(void *list, void *n)
+{
+    if (n) {
+        struct {
+            void *next;
+        } *head = list;
+        if (!head) {
+            return n;
+        }
+        while (head->next) {
+            head = head->next;
+        }
+        head->next = n;
+    }
+    return list;
+}
+
+
 char *
 new_name(const char *tmpl)
 {

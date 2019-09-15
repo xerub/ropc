@@ -1,24 +1,36 @@
-translation_unit	: external_decl
-			| translation_unit external_decl
+translation_unit	: stat_or_decl_list
+			;
+stat_or_decl_list	: stat_or_decl
+			| stat_or_decl_list stat_or_decl
+			;
+stat_or_decl		: stat
+			| external_decl ';'
 			;
 external_decl		: "extern" ID
 			| "extern" ID attribute_spec
 			| "extern" ID '=' NUMBER
 			| "extern" ID attribute_spec '=' NUMBER
-			| labeled_stat
 			;
-labeled_stat		: ID ':'
-			| ID ':' labeled_stat
-			| stat
-			;
-stat			: assignment_exp
-			| selection_stat
+stat			: labeled_stat
+			| ';'
+			| '{' stat_or_decl_list '}'
 			| jump_stat
+			| selection_stat
+			| assignment_exp ';'
 			;
-selection_stat		: "if" '(' assignment_exp ')' jump_stat
-			| "if" '!' '(' assignment_exp ')' jump_stat
+labeled_stat		: ID ':' stat
 			;
-jump_stat		: "goto" ID
+jump_stat		: "goto" ID ';'
+			| "break" ';'
+			| "continue" ';'
+			;
+selection_stat		: "if" conditional_exp stat
+			| "if" conditional_exp stat "else" stat
+			| "do" stat "while" conditional_exp ';'
+			| "while" conditional_exp stat
+			;
+conditional_exp		: '(' assignment_exp ')'
+			|  '!' '(' assignment_exp ')'
 			;
 assignment_exp		: or_exp
 			| lvalue_exp '=' assignment_exp

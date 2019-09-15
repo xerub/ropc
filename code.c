@@ -148,7 +148,7 @@ link_graph(struct the_node *list)
 void
 emit_code(struct the_node *list)
 {
-    struct the_node *n = reverse_list(list);
+    struct the_node *n = list;
     if (optimize_jmp) {
         merge_labels(n);
     }

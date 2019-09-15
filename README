@@ -5,9 +5,8 @@
 
 2. we implement lazy assignment.  that is, an assignment is not guaranteed
     to generate code, it only guarantees that when first using the assigned
-    variable, it will have the desired value.  however, since we "compile"
-    one line at a time (and since we do not have proper flow analysis)
-    any assignment in a loop cannot be lazy.  use 'const' to avoid this
+    variable, it will have the desired value.  however, since we do not have
+    proper flow analysis, any assignment in a loop cannot be lazy. see 'const'
 
 3. immediate expressions involving local pointers cannot be simplified, unless
     they can be reduced to: PTR + scalar.  that is because there is one single
@@ -48,9 +47,6 @@
     stack above modify is destroyed, so jumping back to label is problematic.
     also, any use of *(&x) is probably doomed.  therefore, we need to reserve
     some stack space before any such calls. see '[[stack]]'
-
-9. comments start with ';'.  there can be no multiple statements on the same
-    line.  also, each statement should be on its own line
 
 ====
 

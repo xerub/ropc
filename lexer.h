@@ -3,6 +3,7 @@
 
 enum TOKTYPE {
     T_COLON,       /* :                      */
+    T_SEMICOLON,   /* ;                      */
     T_COMMA,       /* ,                      */
     T_OPENCURLY,   /* {                      */
     T_CLOSECURLY,  /* }                      */
@@ -26,6 +27,11 @@ enum TOKTYPE {
     T_INT,         /* integer constant       */
 
     T_K_IF,
+    T_K_ELSE,
+    T_K_DO,
+    T_K_WHILE,
+    T_K_BREAK,
+    T_K_CONTINUE,
     T_K_GOTO,
     T_K_CONST,
     T_K_EXTERN,
@@ -45,6 +51,7 @@ struct TOKEN {
 
 extern struct TOKEN token;
 
+void init_tokens(void *p);
 int tokenize(const char *s);
 void next_token(void);
 enum TOKTYPE peek_token(void);
