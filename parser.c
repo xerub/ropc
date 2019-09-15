@@ -44,7 +44,7 @@ static int
 R_attribute(int allow, int *regparm, int *restack)
 {
     int attr = 0;
-    const char *sym = token.sym;
+    char *sym = xstrdup(token.sym);
     ENTER();
     if (!IS(T_ID)) {
         expect("attribute");
@@ -92,6 +92,7 @@ R_attribute(int allow, int *regparm, int *restack)
         attr = ATTRIB_UNKNOWN;
     }
     next_token(); /* skip attribute */
+    free(sym);
     LEAVE();
     return attr;
 }
@@ -652,14 +653,14 @@ R_external_decl(struct the_node *the_node)
 {
     ENTER();
     if (IS(T_K_EXTERN)) {
-        const char *import;
+        char *import;
         int attr, regparm = -1, restack = -1;
         unsigned long long val = -1;
         next_token(); /* skip 'extern' */
         if (!IS(T_ID)) {
             expect("identifier");
         }
-        import = token.sym;
+        import = xstrdup(token.sym);
         next_token(); /* skip ID */
         attr = R_attribute_spec(ATTRIB_NORETURN | ATTRIB_STDCALL | ATTRIB_REGPARM, &regparm, &restack);
         if (IS(T_ASSIGN)) {
@@ -671,6 +672,7 @@ R_external_decl(struct the_node *the_node)
             next_token(); /* skip NUMBER */
         }
         emit_extern(import, val, attr, regparm);
+        free(import);
     } else {
         R_labeled_stat(the_node);
     }
