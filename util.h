@@ -31,6 +31,8 @@ int popcount(unsigned int v);
 void *xmalloc(size_t size);
 char *xstrdup(const char *s);
 
+void *reverse_list(void *n);
+
 char *new_name(const char *tmpl);
 char *prepend(int ch, const char *str);
 

@@ -49,6 +49,22 @@ xstrdup(const char *s)
 }
 
 
+void *
+reverse_list(void *n)
+{
+    struct {
+        void *next;
+    } *next, *prev = NULL, *node = n;
+    while (node) {
+        next = node->next;
+        node->next = prev;
+        prev = node;
+        node = next;
+    }
+    return prev;
+}
+
+
 char *
 new_name(const char *tmpl)
 {

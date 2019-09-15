@@ -95,7 +95,6 @@ struct xor_node *alloc_xor_node(void);
 struct and_node *alloc_and_node(void);
 struct add_node *alloc_add_node(void);
 struct mul_node *alloc_mul_node(void);
-void *reverse_list(void *n);
 void free_nodes(struct node *n);
 
 void walk_nodes(struct node *n, int level);

@@ -97,21 +97,6 @@ alloc_mul_node(void)
 }
 
 
-void *
-reverse_list(void *n)
-{
-    struct node *prev = NULL;
-    struct node *node = n;
-    while (node) {
-        struct node *next = node->next;
-        node->next = prev;
-        prev = node;
-        node = next;
-    }
-    return prev;
-}
-
-
 void
 free_nodes(struct node *n)
 {
