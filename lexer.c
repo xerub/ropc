@@ -80,6 +80,9 @@ tokenize(const char *s)
     for (ntok = 0; *s && *s != ';'; s++) {
         char *p;
         int len;
+        if (*s == '/' && s[1] == '/') {
+            break;
+        }
         if (isspace(*s)) {
             continue;
         }
