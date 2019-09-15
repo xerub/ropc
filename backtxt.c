@@ -324,7 +324,7 @@ emit_cond(const char *label, enum cond_t cond)
 
 
 void
-emit_label(const char *label, BOOL used, BOOL last)
+emit_label(const char *label, int used, BOOL last)
 {
     add_label(label, 0x1abe1);
     if (!used) {

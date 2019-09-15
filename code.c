@@ -14,7 +14,7 @@
 struct label_node {
     struct label_node *next;
     char *label;
-    BOOL used;
+    int used;
 };
 
 
@@ -24,7 +24,7 @@ new_label(struct label_node *top, const char *label)
     struct label_node *n = xmalloc(sizeof(struct label_node));
     n->label = xstrdup(label);
     n->next = top;
-    n->used = FALSE;
+    n->used = 0;
     return n;
 }
 
@@ -87,7 +87,7 @@ find_node_with_label(struct the_node *head, const char *label)
         struct label_node *l;
         for (l = head->labels; l; l = l->next) {
             if (!strcmp(l->label, label)) {
-                l->used = TRUE;
+                l->used++;
                 return head;
             }
         }

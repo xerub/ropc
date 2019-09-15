@@ -1054,7 +1054,7 @@ emit_cond(const char *label, enum cond_t cond)
 
 
 void
-emit_label(const char *label, BOOL used, BOOL last)
+emit_label(const char *label, int used, BOOL last)
 {
     if (!used) {
         make1(LABEL, label, 0);
