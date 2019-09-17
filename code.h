@@ -6,9 +6,11 @@
 
 enum cond_t {
     COND_AL, /* always */
-    COND_NE, /* Z==0 */
-    COND_EQ  /* Z==1 */
+    COND_NE = 1, /* Z==0 */
+    COND_EQ = -1 /* Z==1 */
 };
+
+#define COND_FLIP(c) -(c)
 
 struct the_node {
     struct the_node *next;

@@ -620,11 +620,7 @@ R_conditional_exp(struct the_node *the_node, enum cond_t *cond)
     if (IS(T_INT) && !strcmp(token.sym, "1")) {
         next_token(); /* skip 'true' */
     } else if (IS(T_INT) && !strcmp(token.sym, "0")) {
-        if (*cond == COND_EQ) {
-            *cond = COND_NE;
-        } else {
-            *cond = COND_EQ;
-        }
+        *cond = COND_FLIP(*cond);
         next_token(); /* skip 'false' */
     } else {
         n = R_assignment_exp(the_node);
@@ -696,11 +692,7 @@ R_selection_stat_if(struct the_node *the_node, struct the_node *ante, struct the
             append_list(body, skip);
         }
     }
-    if (cond == COND_NE) {
-        cond = COND_EQ;
-    } else {
-        cond = COND_NE;
-    }
+    cond = COND_FLIP(cond);
   okay:
     append_list(the_node, body);
     the_node->code = n;
@@ -775,11 +767,7 @@ R_selection_stat_while(struct the_node *the_node)
     } else if (skip->labels) {
         append_list(body, skip);
     }
-    if (cond == COND_NE) {
-        cond = COND_EQ;
-    } else {
-        cond = COND_NE;
-    }
+    cond = COND_FLIP(cond);
     append_list(the_node, body);
     the_node->code = n;
     the_node->cond = n ? cond : COND_AL;

@@ -282,11 +282,7 @@ prune_nodes(struct the_node *list)
             n->edge[0] = next->next;
             n->edge[1] = next->edge[0];
             n->next = next->next;
-            if (n->cond == COND_EQ) {
-                n->cond = COND_NE;
-            } else {
-                n->cond = COND_EQ;
-            }
+            n->cond = COND_FLIP(n->cond);
             next->jump = NULL;
             delete_the_node(next);
         }
