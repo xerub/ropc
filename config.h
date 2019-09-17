@@ -4,6 +4,7 @@
 #define ROPC_VERSION "1.2"
 #undef LEXER_DEBUG
 #undef PARSER_DEBUG
+#undef CODE_DEBUG
 #undef DATA_DEBUG
 #define LEXER_READ_CPP
 #define LEXER_STR_MERGE

@@ -18,6 +18,35 @@ struct label_node {
 };
 
 
+#ifdef CODE_DEBUG
+#include <stdio.h>
+
+
+static void
+print_ops(struct the_node *list)
+{
+    struct the_node *n;
+    for (n = list; n; n = n->next) {
+        struct label_node *l;
+        for (l = n->labels; l; l = l->next) {
+            printf("%s: [%d]\n", l->label, l->used);
+        }
+        printf("%c   ", n->reachable ? 'x' : ' ');
+        if (n->cond != COND_AL) {
+            printf("if %scond goto %s", (n->cond == COND_EQ) ? "!" : "", n->jump);
+        } else if (n->jump) {
+            printf("goto %s", n->jump);
+        } else if (n->code) {
+            printf("code");
+        } else {
+            printf("<empty>");
+        }
+        printf("\n");
+    }
+}
+#endif
+
+
 struct label_node *
 new_label(struct label_node *top, const char *label)
 {
