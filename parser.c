@@ -672,7 +672,7 @@ R_selection_stat_if(struct the_node *the_node, struct the_node *ante, struct the
         append_list(skip, elze);
         append_list(elze, last);
     } else {
-        if (1) {
+        if (!optimize_jmp) {
             /* XXX hack alert: if the first instruction is a "goto", don't do the inversion + skip over
              * this is to maintain compatibility with old code generation when 'optimize_jmp' is not enabled
              */

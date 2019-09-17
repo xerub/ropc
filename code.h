@@ -21,6 +21,7 @@ struct the_node {
     int attr;                  /* maybe ATTRIB_NORETURN */
     int lineno;                /* line number, for error reporting */
     char *filename;            /* file name, for error reporting */
+    int reachable;
 
     struct the_node *edge[2]; /* edge[0] next in execution flow (may be NULL if this node is a noreturn). edge[1] next in conditional flow (usually NULL if this node is not conditional) */
 
