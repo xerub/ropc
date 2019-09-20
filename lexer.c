@@ -79,7 +79,6 @@ tokenize(const char *s)
 
     for (ntok = 0; *s && *s != ';'; s++) {
         char *p;
-        int len;
         if (*s == '/' && s[1] == '/') {
             break;
         }
@@ -88,7 +87,6 @@ tokenize(const char *s)
         }
         last = s;
 
-        len = 0;
         switch (*s) {
             case ':':
             case ',':
@@ -108,10 +106,8 @@ tokenize(const char *s)
             case '^':
             case '&':
             case '@':
-                len = 1;
                 break;
-        }
-        if (!len) {
+            default:
             if (IS_STRING(s)) {
                 int quote = *s;
                 while (*++s && *s != quote) {
@@ -135,19 +131,17 @@ tokenize(const char *s)
             } else {
                 goto err_syntax;
             }
-            len = 1;
         }
         if (ntok >= MAXTOK) {
             die("too many tokens\n");
             goto err;
         }
-        p = new_token(last, s + len - last);
+        p = new_token(last, s + 1 - last);
         if (!p) {
             die("out of memory\n");
             goto err;
         }
         tokens[ntok++] = p;
-        s += len - 1;
     }
     itok = 0;
     return ntok;
