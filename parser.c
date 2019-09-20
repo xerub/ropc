@@ -37,7 +37,7 @@ expect(const char *what)
 
 
 static struct node *R_or_exp(struct the_node *the_node);
-static struct imm_node *R_immediate_exp(void);
+static struct imm_node *R_immediate_exp(const char *death);
 
 
 static int
@@ -141,11 +141,11 @@ R_initializer_list(int *num)
 {
     struct node *n, *p;
     ENTER();
-    n = (struct node *)R_immediate_exp();
+    n = (struct node *)R_immediate_exp("immediate");
     *num = 1;
     for (p = n; IS(T_COMMA); p = p->next) {
         next_token(); /* skip ',' */
-        p->next = (struct node *)R_immediate_exp();
+        p->next = (struct node *)R_immediate_exp("immediate");
         (*num)++;
     }
     LEAVE();
@@ -154,7 +154,7 @@ R_initializer_list(int *num)
 
 
 static struct imm_node *
-R_immediate_exp(void)
+R_immediate_exp(const char *death)
 {
     struct imm_node *n = alloc_imm_node();
     BOOL negative = FALSE;
@@ -222,6 +222,9 @@ R_immediate_exp(void)
             negative = TRUE;
         }
         next_token(); /* skip '+'/'-' */
+        if (!IS(T_INT)) {
+            expect("number");
+        }
     }
     if (IS(T_INT)) {
         n->value = create_number_str(negative, token.sym);
@@ -230,12 +233,17 @@ R_immediate_exp(void)
         return n;
     }
     if (IS(T_ID) && try_symbol_extern(token.sym)) {
+        /* XXX this should be kept as an address, but we don't keep it as such...
+         * for this reason, we must deal with externs later when emitting code :\
+         * if we ever decide to treat it as an address, care must be taken during
+         * constant folding phase: local and extern addresses cannot be mixed etc.
+         */
         n->value = xstrdup(token.sym);
         next_token(); /* skip ID */
         LEAVE();
         return n;
     }
-    expect("immediate");
+    expect(death);
 }
 
 
@@ -265,7 +273,7 @@ R_type_qualifier(void)
 static struct lval_node *
 R_lvalue_exp(void)
 {
-    struct lval_node *n = alloc_lval_node();
+    struct lval_node *n;
     BOOL deref = FALSE;
     int attr = 0;
     ENTER();
@@ -276,8 +284,13 @@ R_lvalue_exp(void)
         attr = R_type_qualifier();
     }
     if (!IS(T_ID)) {
+        if (!attr && !deref) {
+            LEAVE();
+            return NULL;
+        }
         expect("identifier");
     }
+    n = alloc_lval_node();
     n->name = xstrdup(token.sym);
     n->deref = deref;
     n->attr = attr;
@@ -309,13 +322,7 @@ R_rvalue_exp(struct the_node *the_node)
     int attr, regparm = -1, restack = -1;
     ENTER();
     attr = R_attribute_spec(ATTRIB_NORETURN | ATTRIB_STDCALL | ATTRIB_STACK | ATTRIB_REGPARM, &regparm, &restack);
-    if (attr) {
-        if (IS(T_ID) && peek_token() == T_OPENBRACE) {
-            goto funcall;
-        }
-        expect("function call");
-    }
-    if (IS(T_ID) && peek_token() == T_OPENBRACE) funcall: {
+    if (IS(T_ID) && peek_token() == T_OPENBRACE) {
         struct call_node *f = alloc_call_node();
         attr |= try_symbol_attr(token.sym);
         the_node->attr = attr;
@@ -334,8 +341,8 @@ R_rvalue_exp(struct the_node *the_node)
         }
         next_token(); /* skip ')' */
         n = (struct node *)f;
-    } else if (IS(T_INT) || IS(T_STRING) || IS(T_AND) || IS(T_AT) || IS(T_ADD) || IS(T_SUB) || IS(T_OPENCURLY)) {
-        n = (struct node *)R_immediate_exp();
+    } else if (attr) {
+        expect("function call");
     } else if (IS(T_OPENBRACE)) {
         next_token(); /* skip '(' */
         n = (struct node *)R_or_exp(the_node);
@@ -344,7 +351,11 @@ R_rvalue_exp(struct the_node *the_node)
         }
         next_token(); /* skip ')' */
     } else {
+        /* XXX consume any extern now, to prevent constant folding */
         n = (struct node *)R_lvalue_exp();
+        if (!n) {
+            n = (struct node *)R_immediate_exp("expression");
+        }
     }
     LEAVE();
     return n;
