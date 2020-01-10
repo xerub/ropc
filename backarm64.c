@@ -852,7 +852,7 @@ emit_call(const char *func, char **args, int nargs, int deref0, BOOL inloop, BOO
         rargs = regparm;
     }
     assert(rargs <= 8 && nargs - rargs <= 5);
-    if (nargs > rargs || (deref0 && rargs > 3)) {
+    if (nargs > rargs || ((deref0 || (attr & ATTRIB_STACK) || inloop) && rargs > 3)) {
         if (rargs <= 3) {
             switch (rargs) {
                 case 3:
