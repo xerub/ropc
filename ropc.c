@@ -42,6 +42,7 @@ int optimize_jmp = 0;
 int show_reg_set = 0;
 int nasm_esc_str = 0;
 int enable_cfstr = 0;
+int no_undefined = 0;
 int inloop_stack = 256;
 
 static const char *outfile = NULL;
@@ -71,6 +72,7 @@ check_args(int argc, char **argv)
                 "    -g          print detailed register usage\n"
                 "    -n          emit NASM escaped strings: `hello\\n`\n"
                 "    -a          accept Apple NSString-like constructs: @\"Hello\"\n"
+                "    -u          emit undefined symbols\n"
                 "    -V          print version and exit\n"
                 , argv[0]);
             exit(0);
@@ -107,6 +109,9 @@ check_args(int argc, char **argv)
                 break;
             case 'a':
                 enable_cfstr = 1;
+                break;
+            case 'u':
+                no_undefined = 1;
                 break;
             case 't':
                 test_gadgets++;

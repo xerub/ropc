@@ -167,6 +167,8 @@ emit_symbols(void)
                         }
                     } else if (p->attr & ATTRIB_VOLATILE) {
                         printx("%-7s dd    0\n", p->key);
+                    } else if (no_undefined) {
+                        printx("%-7s dd    0\n", p->key);
                     } else {
                         printx(";-- %s = ?\n", p->key);
                     }
