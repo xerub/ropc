@@ -291,6 +291,9 @@ R_lvalue_exp(void)
         }
         expect("identifier");
     }
+    if (all_volatile && !attr && !deref) {
+        attr = ATTRIB_VOLATILE;
+    }
     n = alloc_lval_node();
     n->name = xstrdup(token.sym);
     n->deref = deref;

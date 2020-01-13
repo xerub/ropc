@@ -20,6 +20,7 @@ extern int show_reg_set;
 extern int nasm_esc_str;
 extern int enable_cfstr;
 extern int no_undefined;
+extern int all_volatile;
 extern int inloop_stack;
 
 extern const unsigned char *binmap;

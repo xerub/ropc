@@ -43,6 +43,7 @@ int show_reg_set = 0;
 int nasm_esc_str = 0;
 int enable_cfstr = 0;
 int no_undefined = 0;
+int all_volatile = 0;
 int inloop_stack = 256;
 
 static const char *outfile = NULL;
@@ -72,6 +73,7 @@ check_args(int argc, char **argv)
                 "    -g          print detailed register usage\n"
                 "    -n          emit NASM escaped strings: `hello\\n`\n"
                 "    -a          accept Apple NSString-like constructs: @\"Hello\"\n"
+                "    -fvolatile  force all unqualified vars to be volatile\n"
                 "    -u          emit undefined symbols\n"
                 "    -V          print version and exit\n"
                 , argv[0]);
@@ -127,6 +129,14 @@ check_args(int argc, char **argv)
                     errx(1, "argument to '%s' is missing", p);
                 }
                 outfile = argv[i];
+                break;
+            case 'f':
+                if (!strcmp(q, "volatile")) {
+                    all_volatile = 1;
+                    q += 8;
+                    break;
+                }
+                q = p;
                 break;
             case 'm':
                 if (!strncmp(q, "restack=", 8)) {
