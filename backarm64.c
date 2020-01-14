@@ -110,7 +110,7 @@ static struct R_OPDEF optab[] = {
     { LDR_X29,      /**/ 0,                              /**/                                            X29, /**/ 0,           /**/  0, 0, 0, "ldp x29, x30, [sp], #0x10 / ret" },
     { LANDING,      /**/ 0,                              /**/                                            X29, /**/         X29, /**/  0, 0, 0, "ldp x29, x30, [sp], #0x10 / ret" },
     { RET_X8,       /**/ 0,                              /**/                         X8,                     /**/ 0,           /**/  0, 0, 0, "ldr x8, [sp, #8] / blr x8" },
-    { LDR_X0_X0,    /**/                            X29, /**/                                            X29, /**/         X29, /**/  0, 0, 0, "ldr x0, [x0] / blr x8" },
+    { LDR_X0_X0,    /**/ X0|                        X29, /**/                                            X29, /**/         X29, /**/  0, 0, 0, "ldr x0, [x0] / blr x8" },
     { STR_X0_X19,   /**/ 0,                              /**/                            X19|X20|        X29, /**/ X19|X20|X29, /**/  0, 0, 0, "str x0, [x19] / ldp x29, x30, [sp, #0x10] / ldp x20, x19, [sp], #0x20 / ret" },
     { MOV_X1_X0,    /**/    X1|                     X29, /**/                                            X29, /**/         X29, /**/  0, 0, 0, "mov x1, x0 / blr x8" },
     { MOV_X0_X1,    /**/ X0|                        X29, /**/                                            X29, /**/         X29, /**/  0, 0, 0, "mov x0, x1 / blr x8" },
@@ -1091,9 +1091,7 @@ void
 emit_initialize(void)
 {
     solve_op(LDR_X29);
-#ifdef COND_BY_PIVOT
     add_extern("__gadget_nop", optab[LDR_X29].addr, 0, -1); // XXX works because all gadgets pop X29, X30
-#endif
     add_extern("__gadget_ret", optab[LDR_X29].addr + 4, 0, -1);
 }
 
