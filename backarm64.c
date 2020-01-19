@@ -538,6 +538,7 @@ void
 emit_finalize(void)
 {
     int i;
+    unsigned sc = 0;
     const BRICK *p = strip;
     const BRICK *q = p + idx;
     BRICK value[32] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
@@ -552,8 +553,10 @@ emit_finalize(void)
             assert(p);
             if (p->type != SYMBOL_EXTERN) {
                 printx("%-7s dd    %-30s; -> PC\n", arg, p->val ? p->val : "0");
+                sc++;
             } else {
                 printx("        dg    0x%-28llX; -> PC: %s\n", p->addr, arg);
+                sc++;
             }
             free(arg);
         } else if (op == LABEL) {
@@ -568,6 +571,7 @@ emit_finalize(void)
             // we can eliminate superfluous LANDING here
         } else {
             printx("        dg    0x%-28llX; -> PC: %s\n", r->addr, r->text);
+            sc++;
         }
         if (op == COMMUTE) {
             long restack = (long)*p++;
@@ -576,6 +580,7 @@ emit_finalize(void)
             }
             if (restack) {
                 printx("        times 0x%lx dd 0\n", restack);
+                sc += restack;
             }
         }
         switch (op) {
@@ -613,6 +618,7 @@ emit_finalize(void)
             case BX_IMM_1:
                 for (i = 0; i < r->incsp; i++) {
                     play_data(*p, i, 'A');
+                    sc++;
                     free(*p);
                     p++;
                 }
@@ -625,11 +631,13 @@ emit_finalize(void)
                 for (i = 28; i >= 0; i--) {
                     if (r->output & (1 << i)) {
                         play_data(value[i], i, 'X');
+                        sc++;
                     }
                 }
                 for (i = 29; i < 32; i++) {
                     if (r->output & (1 << i)) {
                         play_data(value[i], i, 'X');
+                        sc++;
                     }
                 }
                 break;
@@ -639,7 +647,7 @@ emit_finalize(void)
         dirty &= ~r->output;
         dirty |= spill;
         if (show_reg_set) {
-            printx(";");
+            printx("; +0x%08x:", sc * 8);
             for (i = 0; i < 32; i++) {
                 if (!(dirty & (1 << i))) {
                     if (i > 8 && i != 16 && i != 19 && i != 20 && i != 29) {

@@ -593,6 +593,7 @@ void
 emit_finalize(void)
 {
     int i;
+    unsigned sc = 0;
     const BRICK *p = strip;
     const BRICK *q = p + idx;
     BRICK value[32] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
@@ -607,8 +608,10 @@ emit_finalize(void)
             assert(p);
             if (p->type != SYMBOL_EXTERN) {
                 printx("%-7s dd    %-30s; -> PC\n", arg, p->val ? p->val : "0");
+                sc++;
             } else {
                 printx("        dg    0x%-28llX; -> PC: %s\n", p->addr, arg);
+                sc++;
             }
             free(arg);
         } else if (op == LABEL) {
@@ -623,6 +626,7 @@ emit_finalize(void)
             // we can eliminate superfluous LANDING here
         } else {
             printx("        dg    0x%-28llX; -> PC: %s\n", r->addr, r->text);
+            sc++;
         }
         if (op == COMMUTE) {
             long restack = (long)*p++;
@@ -632,9 +636,13 @@ emit_finalize(void)
             }
             if (restack) {
                 printx("        times 0x%lx dd 0\n", restack);
+                sc += restack;
             }
             if (stalign) {
+                unsigned z = stalign / 8;
+                assert((stalign & (stalign - 1)) == 0 && z);
                 printx("        align %ld\n", stalign);
+                sc = (sc + z - 1) / z * z;
             }
         }
         switch (op) {
@@ -668,6 +676,7 @@ emit_finalize(void)
             case BX_IMM_1:
                 for (i = 0; i < r->incsp; i++) {
                     play_data(*p, i + 32);
+                    sc++;
                     free(*p);
                     p++;
                 }
@@ -683,11 +692,13 @@ emit_finalize(void)
                     }
                     if (r->output & (1 << i)) {
                         play_data(value[i], i);
+                        sc++;
                     }
                 }
                 for (i = 4; i < 6; i++) {
                     if (r->output & (1 << i)) {
                         play_data(value[i], i);
+                        sc++;
                     }
                 }
                 break;
@@ -697,7 +708,7 @@ emit_finalize(void)
         dirty &= ~r->output;
         dirty |= spill;
         if (show_reg_set) {
-            printx(";");
+            printx("; +0x%08x:", sc * 8);
             for (i = 0; i < 32; i++) {
                 if (!(dirty & (1 << i))) {
                     if (i > 9) {
