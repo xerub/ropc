@@ -56,6 +56,7 @@ enum R_OP {
     LDR_X2,
     LDR_X3,
     LDR_X19,
+    LDR_X19X20,
     LDR_X29,
     LANDING,
     RET_X8,
@@ -74,9 +75,7 @@ enum R_OP {
     BR_X16,
     BLR_X19,
     COMMUTE,
-    NOT_X0,
-    SEL_1,
-    SEL_2,
+    SELECT,
 #ifdef COND_BY_PIVOT
     PIVOT,
 #endif
@@ -107,6 +106,7 @@ static struct R_OPDEF optab[] = {
     { LDR_X2,       /**/                            X29, /**/       X2,                                       /**/ 0,           /**/  0, 0, 0, "ldr x2, [sp] / blr x8" },
     { LDR_X3,       /**/                            X29, /**/          X3,                                    /**/ 0,           /**/  0, 0, 0, "ldr x3, [sp] / blr x8" },
     { LDR_X19,      /**/ 0,                              /**/                            X19|X20|        X29, /**/     X20|X29, /**/  0, 0, 0, "ldp x29, x30, [sp, #0x10] / ldp x20, x19, [sp], #0x20 / ret" },
+    { LDR_X19X20,   /**/ 0,                              /**/                            X19|X20|        X29, /**/         X29, /**/  0, 0, 0, "ldp x29, x30, [sp, #0x10] / ldp x20, x19, [sp], #0x20 / ret" },
     { LDR_X29,      /**/ 0,                              /**/                                            X29, /**/ 0,           /**/  0, 0, 0, "ldp x29, x30, [sp], #0x10 / ret" },
     { LANDING,      /**/ 0,                              /**/                                            X29, /**/         X29, /**/  0, 0, 0, "ldp x29, x30, [sp], #0x10 / ret" },
     { RET_X8,       /**/ 0,                              /**/                         X8,                     /**/ 0,           /**/  0, 0, 0, "ldr x8, [sp, #8] / blr x8" },
@@ -125,9 +125,7 @@ static struct R_OPDEF optab[] = {
     { BR_X16,       /**/ X0|X1|X2|X3|X4|X5|X6|X7|X8,     /**/ X0|X1|X2|X3|X4|X5|X6|X7|                   X29, /**/         X29, /**/  0, 0, 0, "mov x16, x0 / ldp x7, x6, [sp], #0x10 / ldp x5, x4, [sp], #0x10 / ldp x3, x2, [sp], #0x10 / ldp x1, x0, [sp], #0x10 / ldp x29, x30, [sp], #0x10 / br x16" },
     { BLR_X19,      /**/ X0|X1|X2|X3|X4|X5|X6|X7|X8,     /**/                            X19|X20|X21|X22|X29, /**/ 0,           /**/  0, 0, 0, "blr x19 / ldp x29, x30, [sp, #0x20] / ldp x20, x19, [sp, #0x10] / ldp x22, x21, [sp], #0x30 / ret" },
     { COMMUTE,      /**/ 0,                              /**/                                            X29, /**/         X29, /**/  0, 0, 0, "mov sp, x29 / ldp x29, x30, [sp], #0x10 / ret" },
-    { NOT_X0,       /**/ X0,                             /**/                            X19|X20|        X29, /**/ X19|X20|X29, /**/  0, 0, 0, "cmp x0, #0 / cset w0, eq / ldp x29, x30, [sp, #0x10] / ldp x20, x19, [sp], #0x20 / ret" },
-    { SEL_1,        /**/ X0,                             /**/                            X19|X20|        X29, /**/ X19|X20|X29, /**/  0, 0, 0, "csel x19, x19, xzr, ne / mov x0, x19 / ldp x29, x30, [sp, #0x10] / ldp x20, x19, [sp], #0x20 / ret" },
-    { SEL_2,        /**/ X0,                             /**/                            X19|X20|        X29, /**/ X19|X20|X29, /**/  0, 0, 0, "csel x19, x19, x0, eq / mov x0, x19 / ldp x29, x30, [sp, #0x10] / ldp x20, x19, [sp], #0x20 / ret" },
+    { SELECT,       /**/ X0,                             /**/                            X19|X20|        X29, /**/ X19|X20|X29, /**/  0, 0, 0, "cmp x0, #0 / csel x0, x19, x20, eq / ldp x29, x30, [sp, #0x10] / ldp x20, x19, [sp], #0x20 / ret" },
 #ifdef COND_BY_PIVOT
     { PIVOT,        /**/ 0,                              /**/ SP, /* XXX needed to keep alignment */          /**/ 0,           /**/  0, 0, 0, "mov sp, x1 / br x0" },
 #endif
@@ -198,6 +196,7 @@ try_solve_op(enum R_OP op)
             rv = parse_string(ranges, binmap, NULL, NULL, "+ E3 03 40 F9 00 01 3F D6");
             break;
         case LDR_X19:
+        case LDR_X19X20:
             rv = parse_string(ranges, binmap, NULL, NULL, "+ FD 7B 41 A9 F4 4F C2 A8 C0 03 5F D6");
             break;
         case LDR_X29:
@@ -309,30 +308,23 @@ try_solve_op(enum R_OP op)
         case COMMUTE:
             rv = parse_string(ranges, binmap, NULL, NULL, "+ BF 03 00 91 FD 7B C1 A8 C0 03 5F D6");
             break;
-        case NOT_X0:
-            rv = parse_string(ranges, binmap, NULL, NULL, "+ 1F 00 00 F1 E0 17 9F 1A FD 7B 41 A9 F4 4F C2 A8 C0 03 5F D6");
-            break;
-        case SEL_1:
-            rv = parse_string(ranges, binmap, NULL, NULL, "+ 73 12 9F 9A E0 03 13 AA FD 7B 41 A9 F4 4F C2 A8 C0 03 5F D6");
+        case SELECT:
+            rv = parse_string(ranges, binmap, NULL, NULL, "+ 1F 00 00 F1 60 02 94 9A FD 7B 41 A9 F4 4F C2 A8 C0 03 5F D6");
             if (rv) {
                 break;
             }
-            rv = parse_string(ranges, binmap, NULL, NULL, "+ 73 12 9F 9A E0 03 13 AA FD 7B 42 A9 F4 4F 41 A9 F6 57 C3 A8 C0 03 5F D6");
+            rv = parse_string(ranges, binmap, NULL, NULL, "+ 1F 00 00 F1 80 12 93 9A FD 7B 41 A9 F4 4F C2 A8 C0 03 5F D6");
             if (rv) {
-                r->output = X19 | X20 | X21 | X22 | X29;
-                r->auxout = X19 | X20 | X21 | X22 | X29;
-                r->text = "csel x19, x19, xzr, ne / mov x0, x19 / ldp x29, x30, [sp, #0x20] / ldp x20, x19, [sp, #0x10] / ldp x22, x21, [sp], #0x30 / ret";
+                r->text = "cmp x0, #0 / csel x0, x20, x19, ne / ldp x29, x30, [sp, #0x10] / ldp x20, x19, [sp], #0x20 / ret";
                 break;
             }
-            rv = parse_string(ranges, binmap, NULL, NULL, "+ 73 12 9F 9A E0 03 13 AA FD 7B 42 A9 F4 4F 41 A9 FF C3 00 91 C0 03 5F D6");
+            rv = parse_string(ranges, binmap, NULL, NULL, "+ 1F 00 00 F1 60 02 94 9A FD 7B 42 A9 F4 4F 41 A9 F6 57 C3 A8 C0 03 5F D6");
             if (rv) {
-                r->incsp = 2;
-                r->text = "csel x19, x19, xzr, ne / mov x0, x19 / ldp x29, x30, [sp, #0x20] / ldp x20, x19, [sp, #0x10] / add sp, sp, #0x30 / ret";
+                r->output |= X21 | X22;
+                r->auxout |= X21 | X22;
+                r->text = "cmp x0, #0 / csel x0, x19, x20, eq / ldp x29, x30, [sp, #0x20] / ldp x20, x19, [sp, #0x10] / ldp x22, x21, [sp], #0x30 / ret";
                 break;
             }
-            break;
-        case SEL_2:
-            rv = parse_string(ranges, binmap, NULL, NULL, "+ 73 02 80 9A E0 03 13 AA FD 7B 41 A9 F4 4F C2 A8 C0 03 5F D6");
             break;
 #ifdef COND_BY_PIVOT
         case PIVOT:
@@ -407,6 +399,16 @@ make1(enum R_OP op, ...)
             }
             strip[idx++] = (BRICK)op;
             break;
+        case LDR_X19X20:
+            if (optimize_reg && pointer[19] && pointer[20]) {
+                strip[pointer[19]] = argdup(va_arg(ap, char *));
+                strip[pointer[20]] = argdup(va_arg(ap, char *));
+                pointer[19] = 0;
+                pointer[20] = 0;
+                goto done;
+            }
+            strip[idx++] = (BRICK)op;
+            break;
         case LDR_X29:
             if (optimize_reg && pointer[29]) {
                 strip[pointer[29]] = argdup(va_arg(ap, char *));
@@ -437,9 +439,7 @@ make1(enum R_OP op, ...)
         case BR_X3:
         case BR_X16:
         case BLR_X19:
-        case NOT_X0:
-        case SEL_1:
-        case SEL_2:
+        case SELECT:
 #ifdef COND_BY_PIVOT
         case PIVOT:
 #endif
@@ -590,6 +590,7 @@ emit_finalize(void)
             case LDR_X2:
             case LDR_X3:
             case LDR_X19:
+            case LDR_X19X20:
             case LDR_X29:
             case LANDING:
             case RET_X8:
@@ -608,9 +609,7 @@ emit_finalize(void)
             case BR_X16:
             case BLR_X19:
             case COMMUTE:
-            case NOT_X0:
-            case SEL_1:
-            case SEL_2:
+            case SELECT:
 #ifdef COND_BY_PIVOT
             case PIVOT:
 #endif
@@ -1010,17 +1009,12 @@ emit_cond(const char *label, enum cond_t cond)
     char *label8 = create_address_str(label, -8);
     BOOL inverse = (cond == COND_EQ);
     assert(cond == COND_NE || cond == COND_EQ);
-    make1(NOT_X0);
     if (inverse) {
-        make1(LDR_X19, next8);
-        make1(SEL_1);
-        make1(LDR_X19, label8);
+        make1(LDR_X19X20, label8, next8);
     } else {
-        make1(LDR_X19, label8);
-        make1(SEL_1);
-        make1(LDR_X19, next8);
+        make1(LDR_X19X20, next8, label8);
     }
-    make1(SEL_2);
+    make1(SELECT);
     emit_store_direct(pivot);
     if ((optab[STR_X0_X19].output & X29) == 0) {
         make1(LANDING);
@@ -1039,17 +1033,12 @@ emit_cond(const char *label, enum cond_t cond)
     char *label8 = create_address_str(label, -8);
     BOOL inverse = (cond == COND_EQ);
     assert(cond == COND_NE || cond == COND_EQ);
-    make1(NOT_X0);
     if (inverse) {
-        make1(LDR_X19, next8);
-        make1(SEL_1);
-        make1(LDR_X19, label8);
+        make1(LDR_X19X20, label8, next8);
     } else {
-        make1(LDR_X19, label8);
-        make1(SEL_1);
-        make1(LDR_X19, next8);
+        make1(LDR_X19X20, next8, label8);
     }
-    make1(SEL_2);
+    make1(SELECT);
     make1(MOV_X1_X0);
     make1(LDR_X0, get_symbol("__gadget_nop")->key);
     make1(PIVOT, NULL);
