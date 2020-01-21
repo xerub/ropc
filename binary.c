@@ -648,12 +648,11 @@ find_string(const unsigned char* haystack, size_t hlen,
             const unsigned char* needle,   size_t nlen,
             const unsigned char* mask, size_t seq_pos, size_t seq_len)
 {
-    size_t tail = nlen - (seq_pos + seq_len);
-    while (hlen >= tail) {
+    while (hlen >= nlen) {
         size_t i;
         const unsigned char *ptr = haystack;
         if (seq_len) {
-            ptr = boyermoore_horspool_memmem(haystack + seq_pos, hlen - tail, needle + seq_pos, seq_len);
+            ptr = boyermoore_horspool_memmem(haystack + seq_pos, hlen - nlen + seq_len, needle + seq_pos, seq_len);
             if (!ptr) {
                 break;
             }
