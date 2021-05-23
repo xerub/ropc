@@ -263,6 +263,17 @@ try_solve_op(enum R_OP op)
             break;
         case ADD_X0_reg:
             rv = parse_string(ranges, binmap, NULL, NULL, "+ 00 00 01 8B FD 7B C1 A8 C0 03 5F D6");
+            if (rv) {
+                break;
+            }
+            rv = parse_string(ranges, binmap, NULL, NULL, "+ 00 00 13 8B FD 7B 41 A9 F4 4F C2 A8 C0 03 5F D6");
+            if (rv) {
+                r->output |= X19 | X20;
+                r->auxout |= X19 | X20;
+                r->flags = LDR_X19;
+                r->text = "add x0, x0, x19 / ldp x29, x30, [sp, #0x10] / ldp x20, x19, [sp], #0x20 / ret";
+                break;
+            }
             break;
         case SUB_X0_reg:
             rv = parse_string(ranges, binmap, NULL, NULL, "+ 00 00 01 CB FD 7B C1 A8 C0 03 5F D6");
