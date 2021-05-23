@@ -85,6 +85,7 @@ enum R_OP {
 
 #define GADGET_with_call        0x100
 #define GADGET_stack_x29_10     0x200
+#define GADGET_inverse          0x400
 
 struct R_OPDEF {
     enum R_OP op;
@@ -316,6 +317,12 @@ try_solve_op(enum R_OP op)
             rv = parse_string(ranges, binmap, NULL, NULL, "+ 1F 00 00 F1 80 12 93 9A FD 7B 41 A9 F4 4F C2 A8 C0 03 5F D6");
             if (rv) {
                 r->text = "cmp x0, #0 / csel x0, x20, x19, ne / ldp x29, x30, [sp, #0x10] / ldp x20, x19, [sp], #0x20 / ret";
+                break;
+            }
+            rv = parse_string(ranges, binmap, NULL, NULL, "+ 1f 00 00 f1 80 02 93 9a fd 7b 41 a9 f4 4f c2 a8 c0 03 5f d6");
+            if (rv) {
+                r->flags = GADGET_inverse;
+                r->text = "cmp x0, #0 / csel x0, x20, x19, eq / ldp x29, x30, [sp, #0x10] / ldp x20, x19, [sp], #0x20 / ret";
                 break;
             }
             rv = parse_string(ranges, binmap, NULL, NULL, "+ 1F 00 00 F1 60 02 94 9A FD 7B 42 A9 F4 4F 41 A9 F6 57 C3 A8 C0 03 5F D6");
@@ -1001,13 +1008,15 @@ emit_goto(const char *label)
 void
 emit_cond(const char *label, enum cond_t cond)
 {
+    const struct R_OPDEF *r = solve_op(SELECT);
+    BOOL ginverse = !!(r->flags & GADGET_inverse);
 #ifndef COND_BY_PIVOT
     char *dst = new_name("dst");
     char *next = new_name("nxt");
     char *pivot = create_address_str(dst, -8);
     char *next8 = create_address_str(next, -8);
     char *label8 = create_address_str(label, -8);
-    BOOL inverse = (cond == COND_EQ);
+    BOOL inverse = (cond == COND_EQ) ^ ginverse;
     assert(cond == COND_NE || cond == COND_EQ);
     if (inverse) {
         make1(LDR_X19X20, label8, next8);
@@ -1031,7 +1040,7 @@ emit_cond(const char *label, enum cond_t cond)
     char *next = new_name("nxt");
     char *next8 = create_address_str(next, -8);
     char *label8 = create_address_str(label, -8);
-    BOOL inverse = (cond == COND_EQ);
+    BOOL inverse = (cond == COND_EQ) ^ ginverse;
     assert(cond == COND_NE || cond == COND_EQ);
     if (inverse) {
         make1(LDR_X19X20, label8, next8);
