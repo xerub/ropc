@@ -78,10 +78,19 @@ struct range {
 };
 
 
+unsigned long gadget_limit = -1;
+
+
 static struct range *
 add_range(struct range *ranges, uint64_t offset, uint64_t vmaddr, uint32_t filesize)
 {
     struct range *r;
+    if (offset >= gadget_limit) {
+        return ranges;
+    }
+    if (offset + filesize > gadget_limit) {
+        filesize = gadget_limit - offset;
+    }
     for (r = ranges; r; r = r->next) {
         if (r->vmaddr == vmaddr) {
             return ranges;

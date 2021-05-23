@@ -45,6 +45,7 @@ int enable_cfstr = 0;
 int no_undefined = 0;
 int all_volatile = 0;
 int inloop_stack = 256;
+extern unsigned long gadget_limit;
 
 static const char *outfile = NULL;
 static const char *binary = NULL;
@@ -60,7 +61,7 @@ check_args(int argc, char **argv)
     for (i = 1; i < argc && *(p = argv[i]) == '-'; i++) {
         const char *q = p + 2;
         if (!strcmp(p, "-h")) {
-            printf("usage: %s [-O2] [-O{i|a|r|j}] [-mrestack=S] [-g] [-n] [a] [-c cache] [-t] [-o output] file\n"
+            printf("usage: %s [-O2] [-O{i|a|r|j}] [-mrestack=S] [-g] [-n] [a] [-c cache [-l limit]] [-t] [-o output] file\n"
                 "    -mrestack   number of words to reserve on the stack prior to calls\n"
                 "    -Oi         optimize immediate assignment\n"
                 "    -Oa         optimize simple arithmetic\n"
@@ -69,6 +70,7 @@ check_args(int argc, char **argv)
                 "    -O2         all of the above\n"
                 "    -o          write output to file\n"
                 "    -c          file to link against: gadgets, imports\n"
+                "    -l          limit the size of the file for gadgets\n"
                 "    -t          test gadgets (used with -c)\n"
                 "    -g          print detailed register usage\n"
                 "    -n          emit NASM escaped strings: `hello\\n`\n"
@@ -123,6 +125,12 @@ check_args(int argc, char **argv)
                     errx(1, "argument to '%s' is missing", p);
                 }
                 binary = argv[i];
+                break;
+            case 'l':
+                if (++i >= argc) {
+                    errx(1, "argument to '%s' is missing", p);
+                }
+                gadget_limit = strtoul(argv[i], (char **)&q, 0);
                 break;
             case 'o':
                 if (++i >= argc) {
