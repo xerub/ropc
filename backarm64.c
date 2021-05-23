@@ -55,6 +55,7 @@ enum R_OP {
     LDR_X1,
     LDR_X2,
     LDR_X3,
+    LDR_X4,
     LDR_X19,
     LDR_X19X20,
     LDR_X29,
@@ -72,6 +73,7 @@ enum R_OP {
     MUL_X0_reg,
     DIV_X0_reg,
     BR_X3,
+    BR_X4,
     BR_X16,
     BLR_X19,
     COMMUTE,
@@ -107,6 +109,7 @@ static struct R_OPDEF optab[] = {
     { LDR_X1,       /**/                            X29, /**/    X1,                                          /**/ 0,           /**/  0, 0, 0, "ldr x1, [sp] / blr x8" },
     { LDR_X2,       /**/                            X29, /**/       X2,                                       /**/ 0,           /**/  0, 0, 0, "ldr x2, [sp] / blr x8" },
     { LDR_X3,       /**/                            X29, /**/          X3,                                    /**/ 0,           /**/  0, 0, 0, "ldr x3, [sp] / blr x8" },
+    { LDR_X4,       /**/                            X29, /**/             X4,                                 /**/ 0,           /**/  0, 0, 0, "ldr x4, [sp] / blr x8" },
     { LDR_X19,      /**/ 0,                              /**/                            X19|X20|        X29, /**/     X20|X29, /**/  0, 0, 0, "ldp x29, x30, [sp, #0x10] / ldp x20, x19, [sp], #0x20 / ret" },
     { LDR_X19X20,   /**/ 0,                              /**/                            X19|X20|        X29, /**/         X29, /**/  0, 0, 0, "ldp x29, x30, [sp, #0x10] / ldp x20, x19, [sp], #0x20 / ret" },
     { LDR_X29,      /**/ 0,                              /**/                                            X29, /**/ 0,           /**/  0, 0, 0, "ldp x29, x30, [sp], #0x10 / ret" },
@@ -124,6 +127,7 @@ static struct R_OPDEF optab[] = {
     { MUL_X0_reg,   /**/ X0,                             /**/                            X19|X20|        X29, /**/ X19|X20|X29, /**/  0, LDR_X19, 0, "mul x0, x0, x19 / ldp x29, x30, [sp, #0x10] / ldp x20, x19, [sp], #0x20 / ret" },
     { DIV_X0_reg,   /**/ X0,                             /**/                            X19|X20|        X29, /**/ X19|X20|X29, /**/  0, LDR_X19, 0, "udiv x0, x0, x19 / ldp x29, x30, [sp, #0x10] / ldp x20, x19, [sp], #0x20 / ret" },
     { BR_X3,        /**/ X0|X1|X2|X3|X4|X5|X6|X7|X8,     /**/                                            X29, /**/         X29, /**/  0, 0, 0, "ldp x29, x30, [sp], #0x10 / br x3" },
+    { BR_X4,        /**/ X0|X1|X2|X3|X4|X5|X6|X7|X8,     /**/                                            X29, /**/         X29, /**/  0, 0, 0, "ldp x29, x30, [sp], #0x10 / br x4" },
     { BR_X16,       /**/ X0|X1|X2|X3|X4|X5|X6|X7|X8,     /**/ X0|X1|X2|X3|X4|X5|X6|X7|                   X29, /**/         X29, /**/  0, 0, 0, "mov x16, x0 / ldp x7, x6, [sp], #0x10 / ldp x5, x4, [sp], #0x10 / ldp x3, x2, [sp], #0x10 / ldp x1, x0, [sp], #0x10 / ldp x29, x30, [sp], #0x10 / br x16" },
     { BLR_X19,      /**/ X0|X1|X2|X3|X4|X5|X6|X7|X8,     /**/                            X19|X20|X21|X22|X29, /**/ 0,           /**/  0, 0, 0, "blr x19 / ldp x29, x30, [sp, #0x20] / ldp x20, x19, [sp, #0x10] / ldp x22, x21, [sp], #0x30 / ret" },
     { COMMUTE,      /**/ 0,                              /**/                                            X29, /**/         X29, /**/  0, 0, 0, "mov sp, x29 / ldp x29, x30, [sp], #0x10 / ret" },
@@ -196,6 +200,9 @@ try_solve_op(enum R_OP op)
             break;
         case LDR_X3:
             rv = parse_string(ranges, binmap, NULL, NULL, "+ E3 03 40 F9 00 01 3F D6");
+            break;
+        case LDR_X4:
+            rv = parse_string(ranges, binmap, NULL, NULL, "+ E4 03 40 F9 00 01 3F D6");
             break;
         case LDR_X19:
         case LDR_X19X20:
@@ -320,6 +327,9 @@ try_solve_op(enum R_OP op)
         case BR_X3:
             rv = parse_string(ranges, binmap, NULL, NULL, "+ FD 7B C1 A8 60 00 1F D6");
             break;
+        case BR_X4:
+            rv = parse_string(ranges, binmap, NULL, NULL, "+ FD 7B C1 A8 80 00 1F D6");
+            break;
         case BR_X16:
             rv = parse_string(ranges, binmap, NULL, NULL, "+ F0 03 00 AA E7 1B C1 A8 E5 13 C1 A8 E3 0B C1 A8 E1 03 C1 A8 FD 7B C1 A8 00 02 1F D6");
             if (rv) {
@@ -421,6 +431,7 @@ make1(enum R_OP op, ...)
         case LDR_X1:
         case LDR_X2:
         case LDR_X3:
+        case LDR_X4:
             i = op - LDR_X0;
             if (optimize_reg && pointer[i]) {
                 strip[pointer[i]] = argdup(va_arg(ap, char *));
@@ -476,6 +487,7 @@ make1(enum R_OP op, ...)
         case MUL_X0_reg:
         case DIV_X0_reg:
         case BR_X3:
+        case BR_X4:
         case BR_X16:
         case BLR_X19:
         case SELECT:
@@ -628,6 +640,7 @@ emit_finalize(void)
             case LDR_X1:
             case LDR_X2:
             case LDR_X3:
+            case LDR_X4:
             case LDR_X19:
             case LDR_X19X20:
             case LDR_X29:
@@ -645,6 +658,7 @@ emit_finalize(void)
             case MUL_X0_reg:
             case DIV_X0_reg:
             case BR_X3:
+            case BR_X4:
             case BR_X16:
             case BLR_X19:
             case COMMUTE:
@@ -888,6 +902,7 @@ emit_div(const char *value, const char *multiplier, int deref0)
 void
 emit_call(const char *func, char **args, int nargs, int deref0, BOOL inloop, BOOL retval, int attr, int regparm, int restack)
 {
+    int has_x4 = 1; // XXX optimistic
     char *tmp = NULL;
     enum R_OP op = BLR_X19;
     int rargs = nargs;
@@ -899,8 +914,10 @@ emit_call(const char *func, char **args, int nargs, int deref0, BOOL inloop, BOO
     }
     assert(rargs <= 8 && nargs - rargs <= 5);
     if (nargs > rargs || ((deref0 || (attr & ATTRIB_STACK) || inloop) && rargs > 3)) {
-        if (rargs <= 3) {
+        if (rargs <= 3 + has_x4) {
             switch (rargs) {
+                case 4:
+                    make1(LDR_X3, args[3]);
                 case 3:
                     make1(LDR_X2, args[2]);
                 case 2:
@@ -915,8 +932,10 @@ emit_call(const char *func, char **args, int nargs, int deref0, BOOL inloop, BOO
             make1(BR_X16, args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7]);
         }
     } else {
-        if (rargs <= 3) {
+        if (rargs <= 3 + has_x4) {
             switch (rargs) {
+                case 4:
+                    make1(LDR_X3, args[3]);
                 case 3:
                     make1(LDR_X2, args[2]);
                 case 2:
@@ -926,7 +945,7 @@ emit_call(const char *func, char **args, int nargs, int deref0, BOOL inloop, BOO
                 case 0:
                     break;
             }
-            op = BR_X3;
+            op = BR_X3 + has_x4;
         } else {
             op = BR_X16;
         }
@@ -945,6 +964,9 @@ emit_call(const char *func, char **args, int nargs, int deref0, BOOL inloop, BOO
             break;
         case BR_X3:
             make1(LDR_X3, func);
+            break;
+        case BR_X4:
+            make1(LDR_X4, func);
             break;
         case BR_X16:
             make1(LDR_X0, func);
@@ -970,6 +992,7 @@ emit_call(const char *func, char **args, int nargs, int deref0, BOOL inloop, BOO
             make1(op, args[3], args[2], args[1], args[0], args[4]);
             break;
         case BR_X3:
+        case BR_X4:
             make1(op);
             break;
         case BR_X16:
