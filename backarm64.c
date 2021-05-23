@@ -86,6 +86,7 @@ enum R_OP {
 #define GADGET_with_call        0x100
 #define GADGET_stack_x29_10     0x200
 #define GADGET_inverse          0x400
+#define GADGET_zero_float       0x800
 
 struct R_OPDEF {
     enum R_OP op;
@@ -302,6 +303,15 @@ try_solve_op(enum R_OP op)
             break;
         case BR_X16:
             rv = parse_string(ranges, binmap, NULL, NULL, "+ F0 03 00 AA E7 1B C1 A8 E5 13 C1 A8 E3 0B C1 A8 E1 03 C1 A8 FD 7B C1 A8 00 02 1F D6");
+            if (rv) {
+                break;
+            }
+            rv = parse_string(ranges, binmap, NULL, NULL, "+ F0 03 00 AA E7 1B C1 6C E5 13 C1 6C E3 0B C1 6C E1 03 C1 6C E7 1B C1 A8 E5 13 C1 A8 E3 0B C1 A8 E1 03 C1 A8 FD 7B C1 A8 00 02 1F D6");
+            if (rv) {
+                r->flags = GADGET_zero_float;
+                r->incsp = 8;
+                r->text = "mov x16, x0 / ldp d7, d6, [sp], #0x10 / ldp d5, d4, [sp], #0x10 / ldp d3, d2, [sp], #0x10 / ldp d1, d0, [sp], #0x10 / ldp x7, x6, [sp], #0x10 / ldp x5, x4, [sp], #0x10 / ldp x3, x2, [sp], #0x10 / ldp x1, x0, [sp], #0x10 / ldp x29, x30, [sp], #0x10 / br x16";
+            }
             break;
         case BLR_X19:
             rv = parse_string(ranges, binmap, NULL, NULL, "+ 60 02 3F D6 FD 7B 42 A9 F4 4F 41 A9 F6 57 C3 A8 C0 03 5F D6");
@@ -377,6 +387,9 @@ make1(enum R_OP op, ...)
     va_start(ap, op);
     assert(idx < 10000);
     solve_op(op);
+    if (r->flags & GADGET_zero_float) {
+        cry("floating point registers are zeroed before this call\n");
+    }
     switch (op) {
         case LABEL:
             strip[idx++] = (BRICK)op;
