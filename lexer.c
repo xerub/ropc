@@ -7,7 +7,7 @@
 #include "lexer.h"
 
 
-#define MAXTOK 64
+#define MAXTOK 128
 
 #define IS_STRING(s)  (*(s) == '\"' || *(s) == '\'')
 
