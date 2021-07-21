@@ -87,9 +87,8 @@ append_list(void *list, void *n)
 char *
 new_name(const char *tmpl)
 {
-    static int i = 0;
     char *p, tmp[256];
-    snprintf(tmp, sizeof(tmp), "L_%s_%d", tmpl, i++);
+    snprintf(tmp, sizeof(tmp), "L_%s_%d", tmpl, new_name_off++);
     p = strdup(tmp);
     assert(p);
     return p;

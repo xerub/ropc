@@ -22,6 +22,7 @@ extern int enable_cfstr;
 extern int no_undefined;
 extern int all_volatile;
 extern int inloop_stack;
+extern int new_name_off;
 
 extern const unsigned char *binmap;
 extern size_t binsz;

@@ -44,6 +44,7 @@ int nasm_esc_str = 0;
 int enable_cfstr = 0;
 int no_undefined = 0;
 int all_volatile = 0;
+int new_name_off = 0;
 int inloop_stack = 256;
 extern unsigned long gadget_limit;
 
@@ -76,6 +77,7 @@ check_args(int argc, char **argv)
                 "    -n          emit NASM escaped strings: `hello\\n`\n"
                 "    -a          accept Apple NSString-like constructs: @\"Hello\"\n"
                 "    -fvolatile  force all unqualified vars to be volatile\n"
+                "    -mgenstart  start internal name numbering\n"
                 "    -u          emit undefined symbols\n"
                 "    -V          print version and exit\n"
                 , argv[0]);
@@ -149,6 +151,10 @@ check_args(int argc, char **argv)
             case 'm':
                 if (!strncmp(q, "restack=", 8)) {
                     inloop_stack = strtoul(q + 8, (char **)&q, 0);
+                    break;
+                }
+                if (!strncmp(q, "genstart=", 9)) {
+                    new_name_off = strtoul(q + 9, (char **)&q, 10);
                     break;
                 }
             default:
