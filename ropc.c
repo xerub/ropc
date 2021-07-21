@@ -148,7 +148,7 @@ check_args(int argc, char **argv)
                 break;
             case 'm':
                 if (!strncmp(q, "restack=", 8)) {
-                    inloop_stack = strtoul(q + 8, (char **)&q, 10);
+                    inloop_stack = strtoul(q + 8, (char **)&q, 0);
                     break;
                 }
             default:

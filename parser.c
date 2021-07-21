@@ -63,7 +63,7 @@ R_attribute(int allow, int *regparm, int *restack)
                 expect("integer");
             }
             n = strtol(token.sym, NULL, 0);
-            if (n > 0 && n <= 0x2000) {
+            if (n > 0 && n <= 0x8000) {
                 *restack = n;
             } else {
                 cry("invalid restack value %ld, using defaults\n", n);
