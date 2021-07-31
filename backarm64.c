@@ -772,7 +772,7 @@ emit_or(const char *value, const char *addend, int deref0, BOOL swap)
     const struct R_OPDEF *r;
     SWAP_PTR(swap, value, addend);
     r = solve_op(OR_X0_reg);
-    make1(r->flags & 0xFF, value);
+    make1(r->flags & 0xFF, addend);
     make1(LDR_X0, value);
     while (deref0--) {
         make1(LDR_X0_X0);
