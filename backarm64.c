@@ -267,6 +267,16 @@ try_solve_op(enum R_OP op)
                 r->text = "and x0, x0, x19 / sub sp, x29, #0x10 / ldp x29, x30, [sp, #0x10] / ldp x20, x19, [sp], #0x20 / ret";
                 break;
             }
+            rv = parse_string(ranges, binmap, NULL, NULL, "+ 20 00 00 8A C0 03 5F D6");
+            if (rv) {
+                r->output = 0;
+                r->auxout = 0;
+                r->incsp = 0;
+                r->flags = LDR_X1 | GADGET_with_call;
+                r->text = "and x0, x1, x0 / ret";
+                add_extern("__gadget_and", rv, 0, -1);
+                break;
+            }
             break;
         case ADD_X0_reg:
             rv = parse_string(ranges, binmap, NULL, NULL, "+ 00 00 01 8B FD 7B C1 A8 C0 03 5F D6");
@@ -830,6 +840,11 @@ emit_and(const char *value, const char *addend, int deref0, BOOL swap)
         make1(LABEL, tmp, 0);
         free(reload);
         free(tmp);
+        return;
+    }
+    if (r->flags & GADGET_with_call) {
+        make1(LDR_X3, "__gadget_and");
+        make1(BR_X3);
         return;
     }
     make1(r->op);
