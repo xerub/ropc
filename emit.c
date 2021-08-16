@@ -354,7 +354,7 @@ emit_nodes(struct node *n, const char *assignto, BOOL force, BOOL inloop)
             struct node *parm;
             int deref0 = 0;
             char *args[MAX_FUNC_ARGS];
-            char *func;
+            char *func = p->func;
             int i;
             int regparm = get_regparm(p);
             BOOL retval = (n->next != NULL) || force || assignto;
@@ -373,7 +373,7 @@ emit_nodes(struct node *n, const char *assignto, BOOL force, BOOL inloop)
                     if (q->deref) {
                         deref0 = 1;
                     }
-                } else if (r0 && parm->next == NULL) {
+                } else if (r0 && parm->next == NULL && is_loadable_sym(func)) {
                     args[i] = NULL;
                     direct = TRUE;
                     emit_nodes(parm, NULL, TRUE, inloop);
@@ -390,7 +390,6 @@ emit_nodes(struct node *n, const char *assignto, BOOL force, BOOL inloop)
                     make_symbol_used(args[i]);
                 }
             }
-            func = p->func;
             if (retval && (p->attr & ATTRIB_NORETURN)) {
                 cry("function '%s' does not return\n", func);
             }
